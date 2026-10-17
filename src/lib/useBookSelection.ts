@@ -27,6 +27,8 @@ export const useSelectionState = create<SelectionState>((set) => ({ hoveredId: n
 
 type OriginalTransform = { position: THREE.Vector3; rotation: THREE.Euler; quaternion: THREE.Quaternion; scale: THREE.Vector3; visible: boolean; parent: THREE.Object3D };
 const bookMeshes = new Map<string, THREE.Object3D>();
+const bookHitMeshes = new Map<string, THREE.Mesh>();
+const bookHighlights = new Map<string, THREE.Object3D>();
 const originalTransforms = new Map<string, OriginalTransform>();
 let activeTimeline: gsap.core.Timeline | null = null;
 let selectionBusy = false;
@@ -51,9 +53,35 @@ function followCamera(mesh: THREE.Object3D, camera: THREE.Camera) {
   mesh.scale.setScalar(2.2);
 }
 
-export function registerBook(id: string, mesh: THREE.Object3D | null) {
-  if (mesh) bookMeshes.set(id, mesh);
-  else bookMeshes.delete(id);
+export function registerBook(
+  id: string,
+  mesh: THREE.Object3D | null,
+  hitMesh: THREE.Mesh | null,
+  highlight: THREE.Object3D | null,
+) {
+  if (mesh && hitMesh && highlight) {
+    bookMeshes.set(id, mesh);
+    bookHitMeshes.set(id, hitMesh);
+    bookHighlights.set(id, highlight);
+    highlight.visible = useSelectionState.getState().hoveredId === id;
+  } else {
+    bookMeshes.delete(id);
+    bookHitMeshes.delete(id);
+    bookHighlights.delete(id);
+  }
+}
+
+function setHoveredBook(id: string | null) {
+  const previousId = useSelectionState.getState().hoveredId;
+  if (previousId) {
+    const previousHighlight = bookHighlights.get(previousId);
+    if (previousHighlight) previousHighlight.visible = false;
+  }
+  if (id) {
+    const nextHighlight = bookHighlights.get(id);
+    if (nextHighlight) nextHighlight.visible = true;
+  }
+  if (previousId !== id) useSelectionState.getState().setHovered(id);
 }
 
 export function takeBook(id: string, camera: THREE.Camera, onReady: () => void) {
@@ -125,7 +153,9 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
   const raycaster = useRef(new THREE.Raycaster());
   const center = useRef(new THREE.Vector2(0, 0));
   const candidate = useRef<ShelfBook | null>(null);
-  const setHovered = useSelectionState((state) => state.setHovered);
+  const lastRaycast = useRef(0);
+  const targets = useRef<THREE.Object3D[]>([]);
+  const intersections = useRef<THREE.Intersection[]>([]);
   const updatePointer = useCallback((event: Pick<MouseEvent, 'clientX' | 'clientY'>) => {
     const rect = gl.domElement.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -134,18 +164,24 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
       -((event.clientY - rect.top) / rect.height) * 2 + 1,
     );
   }, [gl.domElement, pointer]);
-  const findBook = useCallback((usePointerPosition = false) => {
+  const findBook = useCallback(() => {
     const locked = document.pointerLockElement === gl.domElement;
-    const point = locked && !usePointerPosition ? center.current : pointer;
+    const point = locked ? center.current : pointer;
     camera.updateWorldMatrix(true, false);
     raycaster.current.setFromCamera(point, camera);
     const heldId = useSelectionState.getState().heldBookId;
-    const meshes = books
-      .filter((book) => book.id !== heldId)
-      .map((book) => bookMeshes.get(book.id))
-      .filter((mesh): mesh is THREE.Object3D => mesh !== undefined && mesh.visible);
-    meshes.forEach((mesh) => mesh.updateWorldMatrix(true, true));
-    const nearestHit = raycaster.current.intersectObjects(meshes, true)[0];
+    const pickTargets = targets.current;
+    pickTargets.length = 0;
+    for (const book of books) {
+      if (book.id === heldId) continue;
+      const mesh = bookHitMeshes.get(book.id);
+      if (!mesh) continue;
+      mesh.updateWorldMatrix(true, false);
+      pickTargets.push(mesh);
+    }
+    const hits = intersections.current;
+    hits.length = 0;
+    const nearestHit = raycaster.current.intersectObjects(pickTargets, false, hits)[0];
     const hit = nearestHit && nearestHit.distance <= 3 ? nearestHit : undefined;
     let hitObject: THREE.Object3D | null = hit?.object ?? null;
     let id: string | undefined;
@@ -155,24 +191,39 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
     }
     candidate.current = books.find((book) => book.id === id) ?? null;
     const hoveredId = candidate.current?.id ?? null;
-    if (useSelectionState.getState().hoveredId !== hoveredId) setHovered(hoveredId);
+    setHoveredBook(hoveredId);
     gl.domElement.style.cursor = candidate.current && !locked ? 'pointer' : 'crosshair';
-  }, [books, camera, gl.domElement, pointer, setHovered]);
+  }, [books, camera, gl.domElement, pointer]);
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     const heldId = useSelectionState.getState().heldBookId;
     if (heldId && heldCamera) {
       const heldMesh = bookMeshes.get(heldId);
       if (heldMesh) followCamera(heldMesh, heldCamera);
     }
+    // Mouse hover is event-driven below; only the locked crosshair needs frame polling.
+    if (document.pointerLockElement !== gl.domElement) return;
+    if (clock.elapsedTime - lastRaycast.current < 1 / 30) return;
+    lastRaycast.current = clock.elapsedTime;
     findBook();
-  });
+  }, -1);
   useEffect(() => {
     const canvas = gl.domElement;
+    const onPointerMove = (event: PointerEvent) => {
+      if (document.pointerLockElement === canvas) return;
+      updatePointer(event);
+      findBook();
+    };
+    const onPointerLeave = () => {
+      if (document.pointerLockElement === canvas) return;
+      candidate.current = null;
+      setHoveredBook(null);
+      canvas.style.cursor = '';
+    };
     const onClick = (event: MouseEvent) => {
       if (event.button !== 0) return;
       updatePointer(event);
-      findBook(true);
+      findBook();
       if (selectionBusy || !candidate.current) return;
       event.preventDefault();
       event.stopPropagation();
@@ -180,8 +231,12 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
       takeBook(selected.id, camera, () => onSelect(selected));
       if (document.pointerLockElement !== canvas && canvas.requestPointerLock) canvas.requestPointerLock();
     };
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerleave', onPointerLeave);
     canvas.addEventListener('click', onClick);
     return () => {
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('click', onClick);
       canvas.style.cursor = '';
     };

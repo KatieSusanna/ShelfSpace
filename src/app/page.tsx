@@ -69,7 +69,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <Canvas camera={{ position: [0, 1.7, 3.1], fov: 70 }} dpr={[1, 2]}>
+      <Canvas camera={{ position: [0, 1.7, 3.1], fov: 70 }} dpr={[1, 1.5]} gl={{ antialias: false, powerPreference: 'high-performance' }}>
         <Room onBookSelected={onBookSelected} />
         <Player />
       </Canvas>

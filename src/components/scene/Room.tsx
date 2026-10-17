@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { DoubleSide, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { DoubleSide, NoColorSpace, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three';
 import { useTexture } from '@react-three/drei';
 import { BOOKCASES, ROOM, WINDOW_SEAT } from '@/config/layout';
 import { Bookcase } from '@/components/Bookcase';
@@ -13,6 +13,40 @@ import { BookSelectionController } from './BookSelectionController';
 import type { ShelfBook } from '@/lib/useBookSelection';
 import { Fireplace } from './Fireplace';
 import { Beanbags } from './Beanbags';
+
+function WoodPlankMaterial({ width, height }: { width: number; height: number }) {
+  const [baseColorSource, normalSource, packedSource] = useTexture([
+    '/textures/wooden-planks/T_vjisagn_2K_B.png',
+    '/textures/wooden-planks/T_vjisagn_2K_N.png',
+    '/textures/wooden-planks/T_vjisagn_2K_ORM.png',
+  ]);
+  const [baseColor, normalMap, packedMap] = useMemo(() => {
+    const maps = [baseColorSource.clone(), normalSource.clone(), packedSource.clone()];
+    for (const map of maps) {
+      map.wrapS = RepeatWrapping;
+      map.wrapT = RepeatWrapping;
+      // The source texture covers 2 m horizontally by 1 m vertically.
+      map.repeat.set(width / 2, height);
+      map.needsUpdate = true;
+    }
+    maps[0].colorSpace = SRGBColorSpace;
+    maps[1].colorSpace = NoColorSpace;
+    maps[2].colorSpace = NoColorSpace;
+    return maps;
+  }, [baseColorSource, normalSource, packedSource, width, height]);
+
+  return (
+    <meshStandardMaterial
+      map={baseColor}
+      normalMap={normalMap}
+      roughnessMap={packedMap}
+      roughness={0.88}
+      metalness={0}
+      normalScale={new Vector2(0.35, 0.35)}
+      side={DoubleSide}
+    />
+  );
+}
 
 function Doorway() {
   const sideWidth = (ROOM.width - ROOM.doorWidth) / 2;
@@ -143,9 +177,9 @@ function LoungeAndWindowSeat() {
 
 function TexturedFloor() {
   const [colorMap, normalMap, roughnessMap] = useTexture([
-    '/models/floor/WoodFloor070_Color.jpg',
-    '/models/floor/WoodFloor070_NormalGL.jpg',
-    '/models/floor/WoodFloor070_Roughness.jpg',
+    '/models/floor/optimized/WoodFloor070_Color_2K.jpg',
+    '/models/floor/optimized/WoodFloor070_NormalGL_2K.jpg',
+    '/models/floor/optimized/WoodFloor070_Roughness_2K.jpg',
   ]);
 
   useEffect(() => {
@@ -198,7 +232,7 @@ export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => 
       <Doorway />
       <mesh position={[0, ROOM.height, 0]}>
         <boxGeometry args={[ROOM.width, ROOM.wallThickness, ROOM.depth]} />
-        <meshStandardMaterial color="#29231d" side={DoubleSide} roughness={0.95} />
+        <WoodPlankMaterial width={ROOM.width} height={ROOM.depth} />
       </mesh>
       <LoungeAndWindowSeat />
 

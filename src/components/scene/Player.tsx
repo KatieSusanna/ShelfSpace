@@ -17,7 +17,9 @@ const LETTER_KEYS: Record<string, string> = { w: 'KeyW', a: 'KeyA', s: 'KeyS', d
 export function Player() {
   const { camera, gl } = useThree();
   const keys = useRef(new Set<string>());
-  const heldBookId = useSelectionState((state) => state.heldBookId);
+  const direction = useRef(new THREE.Vector3());
+  const right = useRef(new THREE.Vector3());
+  const movement = useRef(new THREE.Vector3());
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -56,32 +58,31 @@ export function Player() {
 
   useFrame((_, delta) => {
     const canvasFocused = document.activeElement === gl.domElement;
-    if (document.pointerLockElement !== gl.domElement && !canvasFocused && !heldBookId) return;
+    if (document.pointerLockElement !== gl.domElement && !canvasFocused && !useSelectionState.getState().heldBookId) return;
     // Ignore unusually large frame gaps to avoid a sudden jump after tab switching.
     const step = Math.min(delta, 0.05);
     const crouching = keys.current.has('ControlLeft') || keys.current.has('ControlRight');
     const targetHeight = crouching ? CROUCH_HEIGHT : PLAYER_HEIGHT;
     camera.position.y = THREE.MathUtils.damp(camera.position.y, targetHeight, 12, step);
 
-    const direction = new THREE.Vector3();
-    camera.getWorldDirection(direction);
-    direction.y = 0;
-    direction.normalize();
-    const right = new THREE.Vector3().crossVectors(direction, camera.up).normalize();
-    const movement = new THREE.Vector3();
+    camera.getWorldDirection(direction.current);
+    direction.current.y = 0;
+    direction.current.normalize();
+    right.current.crossVectors(direction.current, camera.up).normalize();
+    movement.current.set(0, 0, 0);
 
-    if (keys.current.has('KeyW')) movement.add(direction);
-    if (keys.current.has('KeyS')) movement.sub(direction);
-    if (keys.current.has('KeyD')) movement.add(right);
-    if (keys.current.has('KeyA')) movement.sub(right);
-    if (movement.lengthSq() === 0) return;
+    if (keys.current.has('KeyW')) movement.current.add(direction.current);
+    if (keys.current.has('KeyS')) movement.current.sub(direction.current);
+    if (keys.current.has('KeyD')) movement.current.add(right.current);
+    if (keys.current.has('KeyA')) movement.current.sub(right.current);
+    if (movement.current.lengthSq() === 0) return;
 
     const speed = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight') ? 5 : 2.8;
-    movement.normalize().multiplyScalar(speed * step);
+    movement.current.normalize().multiplyScalar(speed * step);
     const roomEdgeX = ROOM.width / 2 - ROOM.wallThickness - PLAYER_RADIUS;
     const roomEdgeZ = ROOM.depth / 2 - ROOM.wallThickness - PLAYER_RADIUS;
-    const nextX = THREE.MathUtils.clamp(camera.position.x + movement.x, -roomEdgeX, roomEdgeX);
-    const nextZ = THREE.MathUtils.clamp(camera.position.z + movement.z, -roomEdgeZ, roomEdgeZ);
+    const nextX = THREE.MathUtils.clamp(camera.position.x + movement.current.x, -roomEdgeX, roomEdgeX);
+    const nextZ = THREE.MathUtils.clamp(camera.position.z + movement.current.z, -roomEdgeZ, roomEdgeZ);
 
     // Test the two directions separately so the player can slide along a shelf edge.
     if (!hitsObstacle(nextX, camera.position.z, PLAYER_RADIUS)) camera.position.x = nextX;

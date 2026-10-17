@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { Outlines, useGLTF } from '@react-three/drei';
+import { gsap } from 'gsap';
 import { registerBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 
 type Piece = { geometry: THREE.BufferGeometry; size: THREE.Vector3 };
@@ -147,13 +148,101 @@ function makeNeutralTexture(source: THREE.Texture | null): THREE.CanvasTexture |
   return texture;
 }
 
+function WhitePageBlock({ book, bookMaterial }: { book: ShelfBook; bookMaterial: THREE.MeshStandardMaterial }) {
+  const pageWidth = book.depth * 1.3;
+  const pageThickness = book.thickness * 0.24;
+  const pageHeight = book.height * 1.2;
+  const backingGeometry = useMemo(() => new THREE.BoxGeometry(pageWidth * 1.88, pageHeight, pageThickness * 1.5), [pageHeight, pageThickness, pageWidth]);
+  const pageGeometry = useMemo(() => new THREE.BoxGeometry(pageWidth, pageHeight, pageThickness), [pageHeight, pageThickness, pageWidth]);
+  const borderWidth = Math.min(book.depth, book.height) * 0.035;
+  const middleLineGeometry = useMemo(() => new THREE.BoxGeometry(borderWidth * 0.6, pageHeight * 1.045, pageThickness * 0.32), [borderWidth, pageHeight, pageThickness]);
+  const leatherGrain = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    const image = context.createImageData(canvas.width, canvas.height);
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        const index = (y * canvas.width + x) * 4;
+        const grain = Math.sin(x * 1.71 + y * 0.43) * Math.cos(y * 1.23 - x * 0.37);
+        const value = Math.round(150 + grain * 38);
+        image.data[index] = value;
+        image.data[index + 1] = value;
+        image.data[index + 2] = value;
+        image.data[index + 3] = 255;
+      }
+    }
+    context.putImageData(image, 0, 0);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(3, 3);
+    return texture;
+  }, []);
+  const pageMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false, depthTest: false, depthWrite: false, transparent: true, opacity: 1 }), []);
+  const middleLineMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: '#b8b8b8', toneMapped: false, depthTest: false, depthWrite: false, transparent: true, opacity: 1 }), []);
+  const backingMaterial = useMemo(() => {
+    const material = bookMaterial.clone();
+    material.bumpMap = leatherGrain;
+    material.bumpScale = 0.014;
+    material.roughness = 0.72;
+    material.depthTest = false;
+    material.depthWrite = false;
+    material.transparent = true;
+    material.opacity = 1;
+    return material;
+  }, [bookMaterial, leatherGrain]);
+  useEffect(() => () => {
+    pageGeometry.dispose(); backingGeometry.dispose(); middleLineGeometry.dispose();
+    pageMaterial.dispose(); middleLineMaterial.dispose(); backingMaterial.dispose(); leatherGrain?.dispose();
+  }, [backingGeometry, backingMaterial, leatherGrain, middleLineGeometry, middleLineMaterial, pageGeometry, pageMaterial]);
+  return (
+    <group>
+      <mesh geometry={backingGeometry} material={backingMaterial} position={[0, 0, -pageThickness * 0.2]} renderOrder={99998} frustumCulled={false} />
+      <group renderOrder={99999}>
+        <mesh geometry={pageGeometry} material={pageMaterial} position={[-pageWidth * 0.44, 0, 0]} renderOrder={99999} frustumCulled={false} />
+        <mesh geometry={pageGeometry} material={pageMaterial} position={[pageWidth * 0.44, 0, 0]} renderOrder={99999} frustumCulled={false} />
+      </group>
+      <group position={[0, 0, pageThickness * 0.42]} renderOrder={1000000}>
+        <mesh geometry={middleLineGeometry} material={middleLineMaterial} position={[0, -pageHeight * 0.01, 0]} renderOrder={1000000} frustumCulled={false} />
+      </group>
+    </group>
+  );
+}
+
+function SideTurnView({ turned, book, bookMaterial, children }: { turned: boolean; book: ShelfBook; bookMaterial: THREE.MeshStandardMaterial; children: ReactNode }) {
+  const group = useRef<THREE.Group>(null);
+  const [sideReady, setSideReady] = useState(false);
+  useLayoutEffect(() => {
+    if (!group.current) return;
+    setSideReady(false);
+    const tween = gsap.to(group.current.rotation, {
+      y: turned ? -Math.PI / 2 : 0,
+      duration: 1.1,
+      ease: 'power2.inOut',
+      onComplete: () => setSideReady(turned),
+    });
+    return () => { tween.kill(); };
+  }, [turned]);
+  return (
+    <group ref={group}>
+      <group visible={!sideReady}>{children}</group>
+      {turned && sideReady && <WhitePageBlock book={book} bookMaterial={bookMaterial} />}
+    </group>
+  );
+}
+
 function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; material: THREE.MeshStandardMaterial }) {
   const group = useRef<THREE.Group>(null);
   const hitMesh = useRef<THREE.Mesh>(null);
   const highlight = useRef<THREE.Group>(null);
   const isHighlighted = useSelectionState((state) => state.hoveredId === book.id);
+  const isOpen = useSelectionState((state) => state.openBookId === book.id);
   const label = useMemo(() => makeSpineLabel(book.title, book.author), [book.author, book.title]);
-  const cover = useMemo(() => makeCoverLabel(book.title, book.leather), [book.leather, book.title]);
+  const coverColour = material.color.getStyle();
+  const cover = useMemo(() => makeCoverLabel(book.title, coverColour), [book.title, coverColour]);
   const hitGeometry = useMemo(() => new THREE.BoxGeometry(book.thickness, book.height, book.depth), [book.depth, book.height, book.thickness]);
   const labelGeometry = useMemo(() => new THREE.PlaneGeometry(book.thickness * 0.82, book.height * 0.86), [book.height, book.thickness]);
   const coverGeometry = useMemo(() => new THREE.PlaneGeometry(book.depth * 0.86, book.height * 0.9), [book.depth, book.height]);
@@ -180,16 +269,18 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
         userData={{ bookPickTarget: true }}
         dispose={null}
       />
-      <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]} />
-      <group ref={highlight} visible={isHighlighted}>
-        <mesh geometry={piece.geometry} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
-          <meshBasicMaterial colorWrite={false} depthWrite={false} />
-          <Outlines color="#ffffff" thickness={1.5} toneMapped={false} />
-        </mesh>
-      </group>
+      <SideTurnView turned={isOpen} book={book} bookMaterial={material}>
+        <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]} />
+        <group ref={highlight} visible={isHighlighted && !isOpen}>
+          <mesh geometry={piece.geometry} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
+            <meshBasicMaterial colorWrite={false} depthWrite={false} />
+            <Outlines color="#ffffff" thickness={1.5} toneMapped={false} />
+          </mesh>
+        </group>
+        <mesh geometry={labelGeometry} material={labelMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
+        <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
+      </SideTurnView>
       <mesh ref={hitMesh} geometry={hitGeometry} visible={false} />
-      <mesh geometry={labelGeometry} material={labelMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
-      <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
     </group>
   );
 }

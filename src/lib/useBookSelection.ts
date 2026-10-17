@@ -22,8 +22,8 @@ export type ShelfBook = {
   roughness: number;
   brightness: number;
 };
-type SelectionState = { hoveredId: string | null; isTaking: boolean; heldBookId: string | null; setHovered: (id: string | null) => void; setTaking: (taking: boolean) => void; setHeldBook: (id: string | null) => void };
-export const useSelectionState = create<SelectionState>((set) => ({ hoveredId: null, isTaking: false, heldBookId: null, setHovered: (hoveredId) => set({ hoveredId }), setTaking: (isTaking) => set({ isTaking }), setHeldBook: (heldBookId) => set({ heldBookId }) }));
+type SelectionState = { hoveredId: string | null; isTaking: boolean; heldBookId: string | null; openBookId: string | null; setHovered: (id: string | null) => void; setTaking: (taking: boolean) => void; setHeldBook: (id: string | null) => void; setOpenBook: (id: string | null) => void };
+export const useSelectionState = create<SelectionState>((set) => ({ hoveredId: null, isTaking: false, heldBookId: null, openBookId: null, setHovered: (hoveredId) => set({ hoveredId }), setTaking: (isTaking) => set({ isTaking }), setHeldBook: (heldBookId) => set({ heldBookId }), setOpenBook: (openBookId) => set({ openBookId }) }));
 
 type OriginalTransform = { position: THREE.Vector3; pulledOutPosition: THREE.Vector3; rotation: THREE.Euler; quaternion: THREE.Quaternion; scale: THREE.Vector3; visible: boolean; parent: THREE.Object3D };
 const MAX_BOOK_PICK_DISTANCE = 10;
@@ -111,6 +111,7 @@ export function takeBook(id: string, camera: THREE.Camera, onReady: () => void) 
     parent,
   });
   useSelectionState.getState().setTaking(true);
+  useSelectionState.getState().setOpenBook(null);
   mesh.visible = true;
   activeTimeline = gsap.timeline({ onComplete: () => {
     mesh.position.copy(targetTransform.position);
@@ -139,6 +140,7 @@ export function returnBook(id: string, onDone: () => void) {
   if (!mesh || !original) { selectionBusy = false; onDone(); return; }
   heldCamera = null;
   useSelectionState.getState().setHeldBook(null);
+  useSelectionState.getState().setOpenBook(null);
   if (!ANIMATE_BOOK) {
     mesh.position.copy(original.position);
     mesh.quaternion.copy(original.quaternion);
@@ -258,6 +260,11 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
       if (document.pointerLockElement === null) return;
       event.preventDefault();
       event.stopPropagation();
+      const heldBookId = useSelectionState.getState().heldBookId;
+      if (heldBookId) {
+        useSelectionState.getState().setOpenBook(heldBookId);
+        return;
+      }
       const selected = findBook();
       if (!selected || selectionBusy) return;
       takeBook(selected.id, camera, () => onSelect(selected));

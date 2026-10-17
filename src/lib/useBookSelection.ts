@@ -27,6 +27,7 @@ export const useSelectionState = create<SelectionState>((set) => ({ hoveredId: n
 
 type OriginalTransform = { position: THREE.Vector3; pulledOutPosition: THREE.Vector3; rotation: THREE.Euler; quaternion: THREE.Quaternion; scale: THREE.Vector3; visible: boolean; parent: THREE.Object3D };
 const MAX_BOOK_PICK_DISTANCE = 10;
+const HELD_BOOK_SCALE = 2.2;
 const bookMeshes = new Map<string, THREE.Object3D>();
 const bookHitMeshes = new Map<string, THREE.Mesh>();
 const bookHighlights = new Map<string, THREE.Object3D>();
@@ -51,7 +52,7 @@ function followCamera(mesh: THREE.Object3D, camera: THREE.Camera) {
   const transform = getHeldTransform(mesh, camera);
   mesh.position.copy(transform.position);
   mesh.quaternion.copy(transform.rotation);
-  mesh.scale.setScalar(2.2);
+  mesh.scale.setScalar(HELD_BOOK_SCALE);
 }
 
 export function registerBook(
@@ -113,7 +114,7 @@ export function takeBook(id: string, camera: THREE.Camera, onReady: () => void) 
   activeTimeline = gsap.timeline({ onComplete: () => {
     mesh.position.copy(targetTransform.position);
     mesh.quaternion.copy(targetTransform.rotation);
-    mesh.scale.setScalar(2.2);
+    mesh.scale.setScalar(HELD_BOOK_SCALE);
     heldCamera = camera;
     useSelectionState.getState().setHeldBook(id);
     useSelectionState.getState().setTaking(false);
@@ -122,7 +123,7 @@ export function takeBook(id: string, camera: THREE.Camera, onReady: () => void) 
   activeTimeline.to(mesh.position, { x: pulledOutPosition.x, y: pulledOutPosition.y, z: pulledOutPosition.z, duration: 0.75, ease: 'power2.inOut' });
   activeTimeline.to(mesh.rotation, { x: targetEuler.x, y: targetEuler.y, z: targetEuler.z, duration: 0.55, ease: 'power2.inOut' });
   activeTimeline.to(mesh.position, { x: targetTransform.position.x, y: targetTransform.position.y, z: targetTransform.position.z, duration: 1, ease: 'power2.inOut' });
-  activeTimeline.to(mesh.scale, { x: 2.2, y: 2.2, z: 2.2, duration: 1, ease: 'power2.inOut' }, '<');
+  activeTimeline.to(mesh.scale, { x: HELD_BOOK_SCALE, y: HELD_BOOK_SCALE, z: HELD_BOOK_SCALE, duration: 1, ease: 'power2.inOut' }, '<');
 }
 
 export function returnBook(id: string, onDone: () => void) {

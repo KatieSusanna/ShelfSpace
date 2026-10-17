@@ -2,8 +2,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useGLTF } from '@react-three/drei';
-import { registerBook, type ShelfBook } from '@/lib/useBookSelection';
+import { Outlines, useGLTF } from '@react-three/drei';
+import { registerBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 
 type Piece = { geometry: THREE.BufferGeometry; size: THREE.Vector3 };
 type Props = { book: ShelfBook; pieces: Piece[]; materials: THREE.MeshStandardMaterial[] };
@@ -151,12 +151,7 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   const group = useRef<THREE.Group>(null);
   const hitMesh = useRef<THREE.Mesh>(null);
   const highlight = useRef<THREE.Group>(null);
-  const outlineGeometry = useMemo(() => {
-    const box = new THREE.BoxGeometry(piece.size.x, piece.size.y, piece.size.z);
-    const edges = new THREE.EdgesGeometry(box);
-    box.dispose();
-    return edges;
-  }, [piece]);
+  const isHighlighted = useSelectionState((state) => state.hoveredId === book.id);
   const label = useMemo(() => makeSpineLabel(book.title, book.author), [book.author, book.title]);
   const cover = useMemo(() => makeCoverLabel(book.title, book.leather), [book.leather, book.title]);
   const hitGeometry = useMemo(() => new THREE.BoxGeometry(book.thickness, book.height, book.depth), [book.depth, book.height, book.thickness]);
@@ -175,7 +170,7 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
     registerBook(book.id, group.current, hitMesh.current, highlight.current);
     return () => registerBook(book.id, null, null, null);
   }, [book.id]);
-  useEffect(() => () => { label.dispose(); cover.dispose(); labelGeometry.dispose(); coverGeometry.dispose(); hitGeometry.dispose(); labelMaterial.dispose(); coverMaterial.dispose(); outlineGeometry.dispose(); }, [cover, coverGeometry, coverMaterial, hitGeometry, label, labelGeometry, labelMaterial, outlineGeometry]);
+  useEffect(() => () => { label.dispose(); cover.dispose(); labelGeometry.dispose(); coverGeometry.dispose(); hitGeometry.dispose(); labelMaterial.dispose(); coverMaterial.dispose(); }, [cover, coverGeometry, coverMaterial, hitGeometry, label, labelGeometry, labelMaterial]);
   return (
     <group ref={group} userData={{ bookId: book.id }}>
       <mesh
@@ -185,13 +180,13 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
         userData={{ bookPickTarget: true }}
         dispose={null}
       />
-      <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
-        <group ref={highlight} visible={false} scale={[1.04, 1.03, 1.03]}>
-          <lineSegments geometry={outlineGeometry}>
-            <lineBasicMaterial color="#ffffff" transparent opacity={0.95} depthTest />
-          </lineSegments>
-        </group>
-      </mesh>
+      <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]} />
+      <group ref={highlight} visible={isHighlighted}>
+        <mesh geometry={piece.geometry} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
+          <meshBasicMaterial colorWrite={false} depthWrite={false} />
+          <Outlines color="#ffffff" thickness={1.5} toneMapped={false} />
+        </mesh>
+      </group>
       <mesh ref={hitMesh} geometry={hitGeometry} visible={false} />
       <mesh geometry={labelGeometry} material={labelMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
       <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />

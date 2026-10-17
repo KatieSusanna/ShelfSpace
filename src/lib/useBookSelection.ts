@@ -25,7 +25,7 @@ export type ShelfBook = {
 type SelectionState = { hoveredId: string | null; isTaking: boolean; heldBookId: string | null; setHovered: (id: string | null) => void; setTaking: (taking: boolean) => void; setHeldBook: (id: string | null) => void };
 export const useSelectionState = create<SelectionState>((set) => ({ hoveredId: null, isTaking: false, heldBookId: null, setHovered: (hoveredId) => set({ hoveredId }), setTaking: (isTaking) => set({ isTaking }), setHeldBook: (heldBookId) => set({ heldBookId }) }));
 
-type OriginalTransform = { position: THREE.Vector3; rotation: THREE.Euler; quaternion: THREE.Quaternion; scale: THREE.Vector3; visible: boolean; parent: THREE.Object3D };
+type OriginalTransform = { position: THREE.Vector3; pulledOutPosition: THREE.Vector3; rotation: THREE.Euler; quaternion: THREE.Quaternion; scale: THREE.Vector3; visible: boolean; parent: THREE.Object3D };
 const MAX_BOOK_PICK_DISTANCE = 10;
 const bookMeshes = new Map<string, THREE.Object3D>();
 const bookHitMeshes = new Map<string, THREE.Mesh>();
@@ -90,7 +90,6 @@ export function takeBook(id: string, camera: THREE.Camera, onReady: () => void) 
   if (!mesh || !mesh.parent) return;
   selectionBusy = true;
   activeTimeline?.kill();
-  originalTransforms.set(id, { position: mesh.position.clone(), rotation: mesh.rotation.clone(), quaternion: mesh.quaternion.clone(), scale: mesh.scale.clone(), visible: mesh.visible, parent: mesh.parent });
   const parent = mesh.parent;
   parent.updateWorldMatrix(true, false);
   camera.updateWorldMatrix(true, false);
@@ -100,6 +99,15 @@ export function takeBook(id: string, camera: THREE.Camera, onReady: () => void) 
   const shelfPosition = mesh.getWorldPosition(new THREE.Vector3());
   const pulledOutWorld = shelfPosition.clone().add(cameraPosition.sub(shelfPosition).normalize().multiplyScalar(0.35));
   const pulledOutPosition = parent.worldToLocal(pulledOutWorld);
+  originalTransforms.set(id, {
+    position: mesh.position.clone(),
+    pulledOutPosition: pulledOutPosition.clone(),
+    rotation: mesh.rotation.clone(),
+    quaternion: mesh.quaternion.clone(),
+    scale: mesh.scale.clone(),
+    visible: mesh.visible,
+    parent,
+  });
   useSelectionState.getState().setTaking(true);
   mesh.visible = true;
   activeTimeline = gsap.timeline({ onComplete: () => {
@@ -112,8 +120,8 @@ export function takeBook(id: string, camera: THREE.Camera, onReady: () => void) 
     onReady();
   } });
   activeTimeline.to(mesh.position, { x: pulledOutPosition.x, y: pulledOutPosition.y, z: pulledOutPosition.z, duration: 0.75, ease: 'power2.inOut' });
+  activeTimeline.to(mesh.rotation, { x: targetEuler.x, y: targetEuler.y, z: targetEuler.z, duration: 0.55, ease: 'power2.inOut' });
   activeTimeline.to(mesh.position, { x: targetTransform.position.x, y: targetTransform.position.y, z: targetTransform.position.z, duration: 1, ease: 'power2.inOut' });
-  activeTimeline.to(mesh.rotation, { x: targetEuler.x, y: targetEuler.y, z: targetEuler.z, duration: 0.9, ease: 'power2.inOut' }, '<');
   activeTimeline.to(mesh.scale, { x: 2.2, y: 2.2, z: 2.2, duration: 1, ease: 'power2.inOut' }, '<');
 }
 
@@ -141,9 +149,36 @@ export function returnBook(id: string, onDone: () => void) {
     selectionBusy = false;
     onDone();
   } });
-  activeTimeline.to(mesh.position, { x: original.position.x, y: original.position.y, z: original.position.z, duration: 1.35, ease: 'power2.inOut' });
-  activeTimeline.to(mesh.rotation, { x: original.rotation.x, y: original.rotation.y, z: original.rotation.z, duration: 1.35, ease: 'power2.inOut' }, '<');
-  activeTimeline.to(mesh.scale, { x: original.scale.x, y: original.scale.y, z: original.scale.z, duration: 1.35, ease: 'power2.inOut' }, '<');
+  // Bring the displayed book back to the shelf opening, turn it to match its
+  // neighbors, then slide it into its original indexed position.
+  activeTimeline.to(mesh.position, {
+    x: original.pulledOutPosition.x,
+    y: original.pulledOutPosition.y,
+    z: original.pulledOutPosition.z,
+    duration: 0.85,
+    ease: 'power2.inOut',
+  });
+  activeTimeline.to(mesh.rotation, {
+    x: original.rotation.x,
+    y: original.rotation.y,
+    z: original.rotation.z,
+    duration: 0.65,
+    ease: 'power2.inOut',
+  }, '<0.1');
+  activeTimeline.to(mesh.position, {
+    x: original.position.x,
+    y: original.position.y,
+    z: original.position.z,
+    duration: 0.55,
+    ease: 'power3.in',
+  });
+  activeTimeline.to(mesh.scale, {
+    x: original.scale.x,
+    y: original.scale.y,
+    z: original.scale.z,
+    duration: 0.55,
+    ease: 'power2.in',
+  }, '<');
 }
 
 export function stopBookAnimation() { activeTimeline?.kill(); activeTimeline = null; }

@@ -242,7 +242,7 @@ function LoungeAndWindowSeat() {
           <sphereGeometry args={[0.13, 14, 12]} />
           <meshStandardMaterial color="#ffd18a" emissive="#ff9f43" emissiveIntensity={2.2} roughness={0.4} />
         </mesh>
-        <pointLight position={[0, 2.42, 0]} color="#ffca82" intensity={18} distance={8} decay={2} />
+        <pointLight position={[0, 2.42, 0]} color="#ffca82" intensity={7} distance={7} decay={2} />
       </group>
     </>
   );

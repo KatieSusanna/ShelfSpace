@@ -12,7 +12,7 @@ export function Dust() {
       size={2}
       speed={0.22}
       opacity={0.52}
-      color="#ffd58c"
+      color="#ffc58b"
       noise={0.8}
     />
   );

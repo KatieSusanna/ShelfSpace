@@ -10,19 +10,19 @@ type Props = { book: ShelfBook; pieces: Piece[]; materials: THREE.MeshStandardMa
 
 function makeSpineLabel(title: string, author: string) {
   const canvas = document.createElement('canvas');
-  canvas.width = 128; canvas.height = 512;
+  canvas.width = 64; canvas.height = 256;
   const context = canvas.getContext('2d');
   if (context) {
     // Keep the lettering horizontal across the spine; short wrapped lines fit its narrow width.
     context.textAlign = 'center'; context.textBaseline = 'middle';
-    context.fillStyle = '#f1e7cf'; context.font = 'bold 24px Georgia';
+    context.fillStyle = '#f1e7cf'; context.font = 'bold 12px Georgia';
     context.shadowColor = 'rgba(20, 12, 7, 0.9)'; context.shadowBlur = 4;
     const words = title.split(/\s+/);
     const lines: string[] = [];
     let line = '';
     for (const word of words) {
       const candidate = line ? `${line} ${word}` : word;
-      if (line && context.measureText(candidate).width > 112) {
+      if (line && context.measureText(candidate).width > 56) {
         lines.push(line);
         line = word;
       } else {
@@ -30,11 +30,11 @@ function makeSpineLabel(title: string, author: string) {
       }
     }
     if (line) lines.push(line);
-    const lineHeight = 30;
+    const lineHeight = 15;
     const titleStart = canvas.height * 0.4 - ((lines.length - 1) * lineHeight) / 2;
-    lines.forEach((titleLine, index) => context.fillText(titleLine, canvas.width / 2, titleStart + index * lineHeight, 116));
-    context.fillStyle = '#e0d2b4'; context.font = '17px Georgia';
-    context.fillText(author, canvas.width / 2, canvas.height * 0.75, 116);
+    lines.forEach((titleLine, index) => context.fillText(titleLine, canvas.width / 2, titleStart + index * lineHeight, 58));
+    context.fillStyle = '#e0d2b4'; context.font = '9px Georgia';
+    context.fillText(author, canvas.width / 2, canvas.height * 0.75, 58);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -113,7 +113,7 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   useEffect(() => { registerBook(book.id, group.current); return () => registerBook(book.id, null); }, [book.id]);
   useEffect(() => () => { label.dispose(); labelGeometry.dispose(); labelMaterial.dispose(); }, [label, labelGeometry, labelMaterial]);
   return (
-    <group ref={group} position={book.position} rotation={[0, 0, book.lean]} userData={{ bookId: book.id }}>
+    <group ref={group} position={book.position} rotation={[0, book.rotationY, book.lean]} userData={{ bookId: book.id }}>
       <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
         {hovered && <mesh scale={[1.04, 1.02, 1.02]}>
           <boxGeometry args={[piece.size.x, piece.size.y, piece.size.z]} />

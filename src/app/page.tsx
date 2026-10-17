@@ -2,27 +2,22 @@
 
 import { Canvas } from '@react-three/fiber';
 import { useCallback, useEffect, useState } from 'react';
-import { Room } from '@/components/scene/Room';
 import { Player } from '@/components/scene/Player';
+import { Room } from '@/components/scene/Room';
 import { ReviewPanel } from '@/components/ui/ReviewPanel';
 import { ScanBookButton } from '@/components/ui/scanBookButton';
-import { returnBook, type ShelfBook } from '@/lib/useBookSelection';
+import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 import { useReviewStore } from '@/store/reviews';
-import { useSelectionState } from '@/lib/useBookSelection';
 import { BookBarcodeScanner } from '@/components/ui/BookBarcodeScanner';
 
 function PointerHint() {
   const [locked, setLocked] = useState(false);
-
   useEffect(() => {
     const updateLock = () => setLocked(document.pointerLockElement !== null);
     document.addEventListener('pointerlockchange', updateLock);
     return () => document.removeEventListener('pointerlockchange', updateLock);
   }, []);
-
-  return locked ? null : (
-    <div className="pointer-hint">Click to look around, WASD to move, Esc to release</div>
-  );
+  return locked ? null : <div className="pointer-hint">Click to look around · WASD to move · Esc to release</div>;
 }
 
 function Crosshair() {
@@ -56,7 +51,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <Canvas camera={{ position: [0, 1.7, 4], fov: 70 }} dpr={[1, 2]}>
+      <Canvas camera={{ position: [0, 1.7, 3.1], fov: 70 }} dpr={[1, 2]}>
         <Room onBookSelected={onBookSelected} />
         <Player />
       </Canvas>

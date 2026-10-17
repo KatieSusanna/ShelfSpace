@@ -20,6 +20,12 @@ export function Player() {
   const heldBookId = useSelectionState((state) => state.heldBookId);
 
   useEffect(() => {
+    const canvas = gl.domElement;
+    const previousTabIndex = canvas.tabIndex;
+    canvas.tabIndex = 0;
+    const focusCanvas = () => canvas.focus({ preventScroll: true });
+    canvas.addEventListener('pointerdown', focusCanvas);
+
     const normalizeKey = (event: KeyboardEvent) => {
       if (MOVEMENT_KEYS.has(event.code)) return event.code;
       const letterKey = LETTER_KEYS[event.key.toLowerCase()];
@@ -40,6 +46,8 @@ export function Player() {
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
     return () => {
+      canvas.removeEventListener('pointerdown', focusCanvas);
+      canvas.tabIndex = previousTabIndex;
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
@@ -47,7 +55,8 @@ export function Player() {
   }, [gl.domElement]);
 
   useFrame((_, delta) => {
-    if (document.pointerLockElement !== gl.domElement && !heldBookId) return;
+    const canvasFocused = document.activeElement === gl.domElement;
+    if (document.pointerLockElement !== gl.domElement && !canvasFocused && !heldBookId) return;
     // Ignore unusually large frame gaps to avoid a sudden jump after tab switching.
     const step = Math.min(delta, 0.05);
     const crouching = keys.current.has('ControlLeft') || keys.current.has('ControlRight');

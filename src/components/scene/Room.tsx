@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { DoubleSide, RepeatWrapping, SRGBColorSpace } from 'three';
+import { DoubleSide, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three';
 import { useTexture } from '@react-three/drei';
 import { BOOKCASES, ROOM, WINDOW_SEAT } from '@/config/layout';
 import { Bookcase } from '@/components/Bookcase';
@@ -161,7 +161,7 @@ function TexturedFloor() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
       <planeGeometry args={[ROOM.width, ROOM.depth]} />
-      <meshStandardMaterial map={colorMap} normalMap={normalMap} roughnessMap={roughnessMap} roughness={0.9} normalScale={[0.3, 0.3]} />
+      <meshStandardMaterial map={colorMap} normalMap={normalMap} roughnessMap={roughnessMap} roughness={0.9} normalScale={new Vector2(0.3, 0.3)} />
     </mesh>
   );
 }

@@ -222,7 +222,10 @@ function SideTurnView({ turned, book, bookMaterial, children }: { turned: boolea
       y: turned ? -Math.PI / 2 : 0,
       duration: 1.1,
       ease: 'power2.inOut',
-      onComplete: () => setSideReady(turned),
+      onComplete: () => {
+        setSideReady(turned);
+        if (turned && document.pointerLockElement) document.exitPointerLock();
+      },
     });
     return () => { tween.kill(); };
   }, [turned]);

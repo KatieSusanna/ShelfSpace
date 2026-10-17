@@ -11,6 +11,13 @@ canvas { display: block; }
 .aim-crosshair--book i { background: #ffd27a; }
 .scene-dim { position: fixed; inset: 0; background: #08070555; pointer-events: none; z-index: 2; }
 .return-book-prompt { position: fixed; z-index: 6; left: 18px; bottom: 22px; padding: 10px 14px; border: 1px solid #776344; border-radius: 4px; background: #211c17ed; color: #f1e2ca; font: 13px Arial, sans-serif; pointer-events: none; }
+.book-page-review { position: fixed; z-index: 4; top: 50%; left: 50%; transform: translate(2%, -50%); width: min(26vw, 270px); height: min(48vh, 420px); padding: 28px 20px; color: #383026; font-family: Georgia, serif; pointer-events: auto; }
+.book-page-review-title { display: block; margin: 0 0 10px; font-size: 19px; }
+.book-page-stars { display: flex; gap: 4px; margin: 0 0 24px; }
+.book-page-stars button { padding: 0; border: 0; background: transparent; color: #8a806f; font-size: 30px; cursor: pointer; }
+.book-page-stars button .selected { color: #c39235; }
+.book-page-review textarea { width: 82%; height: 42%; resize: none; padding: 8px; border: 1px solid #b9ae99; border-radius: 2px; background: #fffefa99; color: #383026; font: 10px/1.35 Georgia, serif; }
+.book-page-review textarea:focus { outline: 2px solid #ad8b54; }
 .review-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: #080705b8; backdrop-filter: blur(3px); }
 .reader-backdrop { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: #080705c9; backdrop-filter: blur(4px); }
 .reader-window { position: relative; width: min(850px, 100%); padding: 28px 36px 24px; border: 1px solid #ae8e61; border-radius: 8px; background: #211b15; color: #f2e5cc; box-shadow: 0 20px 70px #000b; text-align: center; font-family: Georgia, serif; }
@@ -24,6 +31,7 @@ canvas { display: block; }
 .book-gutter { z-index: 1; width: 18px; background: linear-gradient(90deg, #d4cec1, #f4f0e8 45%, #d4cec1); box-shadow: 0 0 10px #81786655; }
 .reader-actions { display: flex; justify-content: center; gap: 10px; margin-top: 22px; }
 @media (max-width: 560px) { .reader-window { padding: 26px 16px 18px; } .open-book { height: 34vh; min-height: 190px; } }
+@media (max-width: 700px) { .book-page-review { width: 36vw; height: 42vh; padding: 20px 10px; } .book-page-review-title { font-size: 15px; } .book-page-stars { gap: 1px; margin-bottom: 14px; } .book-page-stars button { font-size: 22px; } .book-page-review textarea { font-size: 9px; } }
 .review-panel { position: relative; width: min(440px, 100%); padding: 32px; border: 1px solid #ae8e61; border-radius: 8px; background: #211b15; color: #f2e5cc; box-shadow: 0 20px 70px #0009; font-family: Georgia, serif; }
 .review-close { position: absolute; top: 10px; right: 14px; border: 0; background: transparent; color: #e5d5b9; font-size: 28px; cursor: pointer; }
 .panel-eyebrow { margin: 0 0 8px; color: #c6a879; font: 11px Arial, sans-serif; letter-spacing: .14em; text-transform: uppercase; }

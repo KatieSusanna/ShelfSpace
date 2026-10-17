@@ -26,6 +26,7 @@ type SelectionState = { hoveredId: string | null; isTaking: boolean; heldBookId:
 export const useSelectionState = create<SelectionState>((set) => ({ hoveredId: null, isTaking: false, heldBookId: null, setHovered: (hoveredId) => set({ hoveredId }), setTaking: (isTaking) => set({ isTaking }), setHeldBook: (heldBookId) => set({ heldBookId }) }));
 
 type OriginalTransform = { position: THREE.Vector3; rotation: THREE.Euler; quaternion: THREE.Quaternion; scale: THREE.Vector3; visible: boolean; parent: THREE.Object3D };
+const MAX_BOOK_PICK_DISTANCE = 10;
 const bookMeshes = new Map<string, THREE.Object3D>();
 const bookHitMeshes = new Map<string, THREE.Mesh>();
 const bookHighlights = new Map<string, THREE.Object3D>();
@@ -97,7 +98,7 @@ export function takeBook(id: string, camera: THREE.Camera, onReady: () => void) 
   const targetEuler = new THREE.Euler().setFromQuaternion(targetTransform.rotation);
   const cameraPosition = camera.getWorldPosition(new THREE.Vector3());
   const shelfPosition = mesh.getWorldPosition(new THREE.Vector3());
-  const pulledOutWorld = shelfPosition.clone().add(cameraPosition.sub(shelfPosition).normalize().multiplyScalar(0.18));
+  const pulledOutWorld = shelfPosition.clone().add(cameraPosition.sub(shelfPosition).normalize().multiplyScalar(0.35));
   const pulledOutPosition = parent.worldToLocal(pulledOutWorld);
   useSelectionState.getState().setTaking(true);
   mesh.visible = true;
@@ -164,6 +165,25 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
       -((event.clientY - rect.top) / rect.height) * 2 + 1,
     );
   }, [gl.domElement, pointer]);
+<<<<<<< HEAD
+  const findBook = useCallback((usePointerPosition = false) => {
+    const locked = document.pointerLockElement !== null;
+    const point = locked && !usePointerPosition ? center.current : pointer;
+    camera.updateWorldMatrix(true, false);
+    raycaster.current.setFromCamera(point, camera);
+    const heldId = useSelectionState.getState().heldBookId;
+    const meshes = books
+      .filter((book) => book.id !== heldId)
+      .map((book) => bookMeshes.get(book.id))
+      .filter((mesh): mesh is THREE.Object3D => mesh !== undefined && mesh.visible);
+    meshes.forEach((mesh) => mesh.updateWorldMatrix(true, true));
+    const intersections = raycaster.current.intersectObjects(meshes, true);
+    const inRange = (intersection: THREE.Intersection) => intersection.distance <= MAX_BOOK_PICK_DISTANCE;
+    const visibleBookHit = intersections.find((intersection) => inRange(intersection) && !intersection.object.userData.bookPickTarget);
+    const forgivingCursorHit = intersections.find((intersection) => inRange(intersection) && intersection.object.userData.bookPickTarget);
+    // The real surface wins when available; the double-sided box catches books whose model mesh is hard to raycast.
+    const hit = visibleBookHit ?? forgivingCursorHit;
+=======
   const findBook = useCallback(() => {
     const locked = document.pointerLockElement === gl.domElement;
     const point = locked ? center.current : pointer;
@@ -183,6 +203,7 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
     hits.length = 0;
     const nearestHit = raycaster.current.intersectObjects(pickTargets, false, hits)[0];
     const hit = nearestHit && nearestHit.distance <= 3 ? nearestHit : undefined;
+>>>>>>> 2f112e96da979dd266ec28ed2c5005451a604215
     let hitObject: THREE.Object3D | null = hit?.object ?? null;
     let id: string | undefined;
     while (hitObject && !id) {
@@ -193,7 +214,12 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
     const hoveredId = candidate.current?.id ?? null;
     setHoveredBook(hoveredId);
     gl.domElement.style.cursor = candidate.current && !locked ? 'pointer' : 'crosshair';
+<<<<<<< HEAD
+    return candidate.current;
+  }, [books, camera, gl.domElement, pointer, setHovered]);
+=======
   }, [books, camera, gl.domElement, pointer]);
+>>>>>>> 2f112e96da979dd266ec28ed2c5005451a604215
 
   useFrame(({ clock }) => {
     const heldId = useSelectionState.getState().heldBookId;
@@ -210,6 +236,44 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
   useEffect(() => {
     const canvas = gl.domElement;
     const onPointerMove = (event: PointerEvent) => {
+<<<<<<< HEAD
+      if (document.pointerLockElement !== null) return;
+      updatePointer(event);
+      findBook(true);
+    };
+    const onPointerLeave = () => {
+      if (document.pointerLockElement !== null) return;
+      candidate.current = null;
+      setHovered(null);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const locked = document.pointerLockElement !== null;
+      if (locked) {
+        event.preventDefault();
+        event.stopPropagation();
+      } else if (event.target !== canvas) {
+        return;
+      }
+      if (!locked) {
+        updatePointer(event);
+      }
+      const selected = findBook(!locked);
+      if (selectionBusy) return;
+      if (!selected) return;
+      takeBook(selected.id, camera, () => onSelect(selected));
+    };
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault();
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerleave', onPointerLeave);
+    window.addEventListener('pointerdown', onPointerDown, true);
+    canvas.addEventListener('contextmenu', preventContextMenu);
+    return () => {
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerleave', onPointerLeave);
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      canvas.removeEventListener('contextmenu', preventContextMenu);
+=======
       if (document.pointerLockElement === canvas) return;
       updatePointer(event);
       findBook();
@@ -238,7 +302,8 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('click', onClick);
+>>>>>>> 2f112e96da979dd266ec28ed2c5005451a604215
       canvas.style.cursor = '';
     };
-  }, [camera, findBook, gl.domElement, onSelect, updatePointer]);
+  }, [books, camera, findBook, gl.domElement, onSelect, setHovered, updatePointer]);
 }

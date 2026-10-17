@@ -8,6 +8,7 @@ import { ScanBookButton } from '@/components/ui/scanBookButton';
 import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 import { useReviewStore } from '@/store/reviews';
 import { BookBarcodeScanner } from '@/components/ui/BookBarcodeScanner';
+import { BookReader } from '@/components/ui/BookReader';
 
 function PointerHint() {
   const [locked, setLocked] = useState(false);
@@ -16,17 +17,18 @@ function PointerHint() {
     document.addEventListener('pointerlockchange', updateLock);
     return () => document.removeEventListener('pointerlockchange', updateLock);
   }, []);
-  return locked ? null : <div className="pointer-hint">WASD to move · Ctrl to crouch · click the room to look around · Esc to release</div>;
+  return locked ? null : <div className="pointer-hint">WASD to move · Ctrl to crouch · left-click a white-outlined book to pick it up</div>;
 }
 
 function Crosshair() {
   const [locked, setLocked] = useState(false);
+  const hoveringBook = useSelectionState((state) => state.hoveredId !== null);
   useEffect(() => {
     const updateLock = () => setLocked(document.pointerLockElement !== null);
     document.addEventListener('pointerlockchange', updateLock);
     return () => document.removeEventListener('pointerlockchange', updateLock);
   }, []);
-  return locked ? <div className="aim-crosshair" aria-hidden="true"><i /></div> : null;
+  return locked ? <div className={`aim-crosshair${hoveringBook ? ' aim-crosshair--book' : ''}`} aria-hidden="true"><i /></div> : null;
 }
 
 export default function Home() {
@@ -93,6 +95,7 @@ export default function Home() {
           Scanned ISBN: {scannedIsbn}
         </div>
       )}
+      {selectedBook && <BookReader book={selectedBook} onClose={closePanel} />}
       {selectedBook && <div className="return-book-prompt">{returning ? 'Returning book to shelf…' : 'Right-click to return book to shelf'}</div>}
     </main>
   );

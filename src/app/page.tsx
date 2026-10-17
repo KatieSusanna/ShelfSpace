@@ -5,8 +5,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Player } from '@/components/scene/Player';
 import { Room } from '@/components/scene/Room';
 import { ReviewPanel } from '@/components/ui/ReviewPanel';
+import { ScanBookButton } from '@/components/ui/scanBookButton';
 import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 import { useReviewStore } from '@/store/reviews';
+import { BookBarcodeScanner } from '@/components/ui/BookBarcodeScanner';
 
 function PointerHint() {
   const [locked, setLocked] = useState(false);
@@ -31,9 +33,16 @@ function Crosshair() {
 export default function Home() {
   const [selectedBook, setSelectedBook] = useState<ShelfBook | null>(null);
   const [returning, setReturning] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannedIsbn, setScannedIsbn] = useState<string | null>(null);
   const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
   const onBookSelected = useCallback((book: ShelfBook) => setSelectedBook(book), []);
+  const openBookScanner = useCallback(() => {
+    if (document.pointerLockElement) document.exitPointerLock();
+    setScannedIsbn(null);
+    setScannerOpen(true);
+  }, []);
   const closePanel = useCallback(() => {
     if (!selectedBook || returning) return;
     setReturning(true);
@@ -51,6 +60,21 @@ export default function Home() {
       {isTaking && <div className="scene-dim" aria-hidden="true" />}
       <div className="book-debug-hint">Press B to show book placement boxes</div>
       <div className="library-status">Reviews saved: {savedCount}</div>
+      <ScanBookButton onClick={openBookScanner} />
+      {scannerOpen && (
+        <BookBarcodeScanner
+          onISBN={(isbn) => {
+            setScannedIsbn(isbn);
+            setScannerOpen(false);
+          }}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
+      {scannedIsbn && (
+        <div className="library-status" style={{ top: 124 }}>
+          Scanned ISBN: {scannedIsbn}
+        </div>
+      )}
       {selectedBook && <ReviewPanel book={selectedBook} onClose={closePanel} />}
     </main>
   );

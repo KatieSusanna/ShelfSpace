@@ -56,5 +56,6 @@ export function Player() {
     camera.position.y = PLAYER_HEIGHT;
   });
 
-  return <PointerLockControls selector=".app-shell" />;
+  // Keep the 3D look controls on the canvas so overlay buttons remain clickable.
+  return <PointerLockControls selector="canvas" />;
 }

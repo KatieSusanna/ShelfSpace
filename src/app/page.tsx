@@ -34,13 +34,11 @@ export default function Home() {
   const [selectedBook, setSelectedBook] = useState<ShelfBook | null>(null);
   const [returning, setReturning] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [scannedIsbn, setScannedIsbn] = useState<string | null>(null);
   const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
   const onBookSelected = useCallback((book: ShelfBook) => setSelectedBook(book), []);
   const openBookScanner = useCallback(() => {
     if (document.pointerLockElement) document.exitPointerLock();
-    setScannedIsbn(null);
     setScannerOpen(true);
   }, []);
   const closePanel = useCallback(() => {
@@ -63,17 +61,9 @@ export default function Home() {
       <ScanBookButton onClick={openBookScanner} />
       {scannerOpen && (
         <BookBarcodeScanner
-          onISBN={(isbn) => {
-            setScannedIsbn(isbn);
-            setScannerOpen(false);
-          }}
+          onISBN={() => setScannerOpen(false)}
           onClose={() => setScannerOpen(false)}
         />
-      )}
-      {scannedIsbn && (
-        <div className="library-status" style={{ top: 124 }}>
-          Scanned ISBN: {scannedIsbn}
-        </div>
       )}
       {selectedBook && <ReviewPanel book={selectedBook} onClose={closePanel} />}
     </main>

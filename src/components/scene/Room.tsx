@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, Suspense, useEffect, useMemo, useState } from 'react';
-import { DoubleSide, NoColorSpace, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three';
+import { DoubleSide, ExtrudeGeometry, NoColorSpace, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from 'three';
 import { useTexture } from '@react-three/drei';
 import { BOOKCASES, FIREPLACE_WINDOWS, ROOM, WINDOW_SEAT } from '@/config/layout';
 import { Bookcase } from '@/components/Bookcase';
@@ -121,10 +121,58 @@ function EastWindow() {
           <meshStandardMaterial color="#3c3025" roughness={0.92} />
         </mesh>
       ))}
+      <WindowArchCap
+        position={[wallX + ROOM.wallThickness / 2, bottom, centerZ]}
+        rotation={[0, -Math.PI / 2, 0]}
+        width={width}
+        height={height}
+        color="#3c3025"
+      />
       <Suspense fallback={null}>
         <GothicWindow6 position={[wallX - 0.04, bottom, centerZ]} rotation={[0, -Math.PI / 2, 0]} width={width} height={height} />
       </Suspense>
     </>
+  );
+}
+
+function WindowArchCap({
+  position,
+  rotation = [0, 0, 0],
+  width,
+  height,
+  color,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  width: number;
+  height: number;
+  color: string;
+}) {
+  const geometry = useMemo(() => {
+    const shape = new Shape();
+    shape.moveTo(-width / 2, height * 0.68);
+    shape.quadraticCurveTo(-width / 2, height * 0.88, 0, height);
+    shape.quadraticCurveTo(width / 2, height * 0.88, width / 2, height * 0.68);
+    shape.lineTo(width / 2, height);
+    shape.lineTo(-width / 2, height);
+    shape.closePath();
+    return new ExtrudeGeometry(shape, {
+      depth: ROOM.wallThickness,
+      bevelEnabled: false,
+      steps: 1,
+    });
+  }, [height, width]);
+
+  return (
+    <mesh
+      position={position}
+      rotation={rotation}
+      geometry={geometry}
+      castShadow
+      receiveShadow
+    >
+      <meshStandardMaterial color={color} roughness={0.92} side={DoubleSide} />
+    </mesh>
   );
 }
 
@@ -157,6 +205,12 @@ function FireplaceWall() {
             <boxGeometry args={[width, ROOM.height - bottom - height, ROOM.wallThickness]} />
             {material}
           </mesh>
+          <WindowArchCap
+            position={[center, bottom, wallZ - ROOM.wallThickness / 2]}
+            width={width}
+            height={height}
+            color="#33291f"
+          />
           <Suspense fallback={null}>
             <GothicWindow6 position={[center, bottom, wallZ + ROOM.wallThickness / 2 + 0.015]} width={width} height={height} />
           </Suspense>

@@ -174,17 +174,17 @@ export function useBookSelection(onSelect: (book: ShelfBook) => void, books: She
     targets.length = 0;
     for (const book of books) {
       if (book.id === heldId) continue;
-      const bookMesh = bookMeshes.get(book.id);
-      if (!bookMesh?.visible) continue;
-      bookMesh.updateWorldMatrix(true, true);
-      targets.push(bookMesh);
+      const hitMesh = bookHitMeshes.get(book.id);
+      if (!hitMesh) continue;
+      hitMesh.updateWorldMatrix(true, false);
+      targets.push(hitMesh);
     }
 
     const hits = intersections.current;
     hits.length = 0;
-    const nearest = raycaster.current.intersectObjects(targets, true, hits)
-      .find((hit) => hit.distance <= MAX_BOOK_PICK_DISTANCE);
-    let hitObject: THREE.Object3D | null = nearest?.object ?? null;
+    const nearest = raycaster.current.intersectObjects(targets, false, hits)[0];
+    const hit = nearest && nearest.distance <= MAX_BOOK_PICK_DISTANCE ? nearest : undefined;
+    let hitObject: THREE.Object3D | null = hit?.object ?? null;
     let id: string | undefined;
     while (hitObject && !id) {
       id = hitObject.userData.bookId as string | undefined;

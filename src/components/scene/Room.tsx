@@ -13,6 +13,7 @@ import { BookSelectionController } from './BookSelectionController';
 import type { ShelfBook } from '@/lib/useBookSelection';
 import { Fireplace } from './Fireplace';
 import { Beanbags } from './Beanbags';
+import { Carpet } from './Carpet';
 
 function WoodPlankMaterial({ width, height }: { width: number; height: number }) {
   const [baseColorSource, normalSource, packedSource] = useTexture([
@@ -143,14 +144,7 @@ function EastWindow() {
 function LoungeAndWindowSeat() {
   return (
     <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, -1.8]}>
-        <circleGeometry args={[1.42, 48]} />
-        <meshStandardMaterial color="#714332" roughness={0.98} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.014, -1.8]}>
-        <circleGeometry args={[1.34, 48]} />
-        <meshStandardMaterial color="#593327" roughness={0.98} />
-      </mesh>
+      <Suspense fallback={null}><Carpet /></Suspense>
       <Beanbags />
       <mesh position={[WINDOW_SEAT.position[0], 0.21, WINDOW_SEAT.position[2]]} castShadow receiveShadow>
         <boxGeometry args={[WINDOW_SEAT.size[0], 0.42, WINDOW_SEAT.size[2]]} />

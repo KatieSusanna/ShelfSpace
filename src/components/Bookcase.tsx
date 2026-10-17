@@ -14,9 +14,8 @@ type BookcaseProps = {
   scale?: number | [number, number, number];
 };
 
-function LoadedBookcase({ kind }: { kind: BookcaseKind }) {
-  // The file contains both shelf sizes; choose just one before cloning it for the room.
-  const scene = useLoader(FBXLoader, '/models/bookcase.fbx', (loader) => {
+function useBookcaseScene() {
+  return useLoader(FBXLoader, '/models/bookcase.fbx', (loader) => {
     loader.setResourcePath('/models/textures/');
     // The FBX embeds texture names with spaces; the ZIP stores the same names with underscores.
     const textureNameFixes: Record<string, string> = {
@@ -31,7 +30,11 @@ function LoadedBookcase({ kind }: { kind: BookcaseKind }) {
       return url;
     });
   });
-  const sourceName = kind === 'tall' ? 'Victorian_Bookcase_Tall' : 'Victorian_Bookcase_Small';
+}
+
+function LoadedBookcase() {
+  const scene = useBookcaseScene();
+  const sourceName = 'Victorian_Bookcase_Tall';
   const source = scene.getObjectByName(sourceName);
   if (!source) throw new Error(`The FBX model does not contain ${sourceName}.`);
 
@@ -78,7 +81,7 @@ function PlaceholderBookcase({ kind }: { kind: BookcaseKind }) {
   const tall = kind === 'tall';
   const width = 0.96;
   const height = tall ? 1.95 : 1.2;
-  const depth = tall ? 0.36 : 0.88;
+  const depth = 0.36;
   const rows = tall ? 6 : 3;
   const shelfColor = '#5b402b';
 
@@ -105,6 +108,53 @@ function PlaceholderBookcase({ kind }: { kind: BookcaseKind }) {
   );
 }
 
+function CompactBookcase() {
+  const scene = useBookcaseScene();
+  const shelfMaterial = useMemo(() => {
+    const source = scene.getObjectByName('Victorian_Bookcase_Tall');
+    let sourceMaterial: THREE.Material | null = null;
+    source?.traverse((object) => {
+      if (!sourceMaterial && object instanceof THREE.Mesh) {
+        const material = Array.isArray(object.material) ? object.material[0] : object.material;
+        sourceMaterial = material;
+      }
+    });
+    if (!sourceMaterial) return new THREE.MeshStandardMaterial({ color: '#49301f', roughness: 0.82 });
+    return sourceMaterial.clone();
+  }, [scene]);
+  useEffect(() => () => shelfMaterial.dispose(), [shelfMaterial]);
+  // A separate three tier frame avoids the six merged shelf boards in the FBX.
+  // Its top and plinth echo the tall case, with the same narrow depth and width.
+  const width = 0.97;
+  const depth = 0.357;
+  const height = 0.96;
+  return (
+    <group>
+      <mesh position={[-width / 2 + 0.035, height / 2, 0]} material={shelfMaterial}>
+        <boxGeometry args={[0.07, height, depth]} />
+      </mesh>
+      <mesh position={[width / 2 - 0.035, height / 2, 0]} material={shelfMaterial}>
+        <boxGeometry args={[0.07, height, depth]} />
+      </mesh>
+      <mesh position={[0, height / 2, -depth / 2 + 0.025]}>
+        <boxGeometry args={[width - 0.07, height - 0.07, 0.05]} />
+        <meshStandardMaterial color="#241811" roughness={0.95} />
+      </mesh>
+      {[0.1, 0.39, 0.68].map((y) => (
+        <mesh key={y} position={[0, y, 0]} material={shelfMaterial}>
+          <boxGeometry args={[width, 0.045, depth]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.935, 0]} material={shelfMaterial}>
+        <boxGeometry args={[width + 0.06, 0.05, depth + 0.025]} />
+      </mesh>
+      <mesh position={[0, 0.035, 0]} material={shelfMaterial}>
+        <boxGeometry args={[width + 0.04, 0.07, depth + 0.02]} />
+      </mesh>
+    </group>
+  );
+}
+
 class ModelErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
 
@@ -121,11 +171,13 @@ class ModelErrorBoundary extends Component<{ fallback: ReactNode; children: Reac
 export function Bookcase({ kind, position, rotation = [0, 0, 0], scale = 1 }: BookcaseProps) {
   return (
     <group position={position} rotation={rotation} scale={scale}>
-      <ModelErrorBoundary fallback={<PlaceholderBookcase kind={kind} />}>
-        <Suspense fallback={<PlaceholderBookcase kind={kind} />}>
-          <LoadedBookcase kind={kind} />
-        </Suspense>
-      </ModelErrorBoundary>
+      {kind === 'small' ? <CompactBookcase /> : (
+        <ModelErrorBoundary fallback={<PlaceholderBookcase kind={kind} />}>
+          <Suspense fallback={<PlaceholderBookcase kind={kind} />}>
+            <LoadedBookcase />
+          </Suspense>
+        </ModelErrorBoundary>
+      )}
     </group>
   );
 }

@@ -7,18 +7,24 @@ export const LEATHER_PALETTE = [
   '#31595b', '#493653', '#8a4e32', '#3c5266',
 ] as const;
 
-// Heights, width and depth were read from the tall shelf and its old book-group bounds.
-// The old books' bottom edges closely match these plank tops.
-const SHELF_ROWS = [0.11, 0.38, 0.66, 0.94, 1.22, 1.5].map((plankTop) => ({
-  plankTop,
-  usableWidth: 0.76,
-  usableDepth: 0.17,
-  spineFrontZ: 0.18, // Flush with the front edge of the shelf so the spines stay visible.
-}));
-// Seven books per row gives the narrow shelf a fuller look while leaving a little breathing room.
-const ROW_COUNTS = [7, 7, 7, 7, 7, 7];
-const BOOKCASE = BOOKCASES.find((shelf) => shelf.kind === 'tall');
-const MODEL_SCALE = typeof BOOKCASE?.scale === 'number' ? BOOKCASE.scale : 1;
+const shelfRows = {
+  tall: [0.11, 0.38, 0.66, 0.94, 1.22, 1.5].map((plankTop) => ({
+    plankTop,
+    usableWidth: 0.76,
+    usableDepth: 0.17,
+    spineFrontZ: 0.18,
+    bookHeight: 0.24,
+  })),
+  // The compact frame has three real shelf boards at these heights.
+  small: [0.1225, 0.4125, 0.7025].map((plankTop) => ({
+    plankTop,
+    usableWidth: 0.76,
+    usableDepth: 0.17,
+    spineFrontZ: 0.18,
+    bookHeight: 0.21,
+  })),
+};
+
 const titles = [
   ['The Quiet Library', 'Moonlit Stories', 'The Old Map', 'Hidden Rooms', 'The Brass Key', 'Letters at Dawn', 'The Secret Stair'],
   ['A Winter Tale', 'The Glass Garden', 'Letters at Dusk', 'The Last Lantern', 'Winter Orchard', 'The Blue Hour', 'Frost and Fern'],
@@ -40,57 +46,72 @@ function randomFromId(id: string): () => number {
   };
 }
 
+function placeOnBookcase(bookcase: (typeof BOOKCASES)[number], x: number, y: number, z: number): [number, number, number] {
+  const [originX, originY, originZ] = bookcase.position;
+  const scale = bookcase.scale;
+  const yaw = bookcase.rotation[1];
+  const scaledX = x * scale;
+  const scaledZ = z * scale;
+  return [
+    originX + scaledX * Math.cos(yaw) + scaledZ * Math.sin(yaw),
+    originY + y * scale,
+    originZ - scaledX * Math.sin(yaw) + scaledZ * Math.cos(yaw),
+  ];
+}
+
 export const SHELF_BOOKS: ShelfBook[] = (() => {
-  if (!BOOKCASE) return [];
   const books: ShelfBook[] = [];
-  const [shelfX, shelfY, shelfZ] = BOOKCASE.position;
   let bookNumber = 0;
 
-  ROW_COUNTS.forEach((count, rowIndex) => {
-    const shelfRow = SHELF_ROWS[rowIndex];
-    if (!shelfRow) return;
-    const rowBooks = Array.from({ length: count }, (_, column) => {
-      const id = `library-book-${bookNumber + column + 1}`;
-      const random = randomFromId(id);
-      const assetPiece = (bookNumber + column) % 3;
-      // These are substantially thicker than before, leaving a visible spine for its title.
-      return { id, random, assetPiece, thickness: 0.092 + random() * 0.036 };
-    });
-    const gaps = rowBooks.slice(0, -1).map((book) => 0.004 + book.random() * 0.005);
-    const gapWidth = gaps.reduce((sum, gap) => sum + gap, 0);
-    const rawWidth = rowBooks.reduce((sum, book) => sum + book.thickness, 0);
-    const thicknessScale = Math.min(1, Math.max(0.1, (shelfRow.usableWidth - gapWidth) / rawWidth));
-    const rowWidth = rawWidth * thicknessScale + gapWidth;
-    let x = -Math.min(rowWidth, shelfRow.usableWidth) / 2;
+  BOOKCASES.forEach((bookcase, caseIndex) => {
+    const rows = shelfRows[bookcase.kind];
+    const scale = bookcase.scale;
+    const yaw = bookcase.rotation[1];
 
-    rowBooks.forEach((slot, column) => {
-      const { id, random } = slot;
-      const thickness = slot.thickness * thicknessScale;
-      const height = 0.24 * (0.9 + random() * 0.2);
-      const depth = Math.min(shelfRow.usableDepth, 0.14 + random() * 0.02);
-      const title = titles[rowIndex % titles.length][column];
-      const paletteIndex = (bookNumber * 5 + rowIndex * 3) % LEATHER_PALETTE.length;
-      const brightness = 0.92 + random() * 0.16;
-      const lean = random() > 0.68 ? (random() - 0.5) * 0.07 : 0;
-      const localX = x + thickness / 2;
-      books.push({
-        id,
-        title,
-        author: authors[(bookNumber + rowIndex) % authors.length],
-        assetPiece: slot.assetPiece,
-        position: [shelfX + localX * MODEL_SCALE, shelfY + (shelfRow.plankTop + height / 2) * MODEL_SCALE, shelfZ + (shelfRow.spineFrontZ - depth / 2) * MODEL_SCALE],
-        height,
-        depth,
-        thickness,
-        lean,
-        leather: LEATHER_PALETTE[paletteIndex],
-        roughness: 0.55 + random() * 0.3,
-        brightness,
+    rows.forEach((row, rowIndex) => {
+      const rowStart = bookNumber;
+      const rowBooks = Array.from({ length: 7 }, (_, column) => {
+        const id = `library-book-${rowStart + column + 1}`;
+        const random = randomFromId(id);
+        return { id, random, assetPiece: (rowStart + column) % 3, thickness: 0.092 + random() * 0.036 };
       });
-      x += thickness + (gaps[column] ?? 0);
-      bookNumber += 1;
+      const gaps = rowBooks.slice(0, -1).map((book) => 0.004 + book.random() * 0.005);
+      const gapWidth = gaps.reduce((sum, gap) => sum + gap, 0);
+      const rawWidth = rowBooks.reduce((sum, book) => sum + book.thickness, 0);
+      const thicknessScale = Math.min(1, (row.usableWidth - gapWidth) / rawWidth);
+      const rowWidth = rawWidth * thicknessScale + gapWidth;
+      let x = -Math.min(rowWidth, row.usableWidth) / 2;
+
+      rowBooks.forEach((slot, column) => {
+        const { id, random } = slot;
+        const thickness = slot.thickness * thicknessScale;
+        const height = row.bookHeight * (0.9 + random() * 0.2);
+        const depth = Math.min(row.usableDepth, row.usableDepth * (0.82 + random() * 0.15));
+        const title = titles[rowIndex % titles.length][column] ?? 'Stories from the Stacks';
+        const paletteIndex = (bookNumber * 5 + rowIndex * 3 + caseIndex) % LEATHER_PALETTE.length;
+        const brightness = 0.92 + random() * 0.16;
+        const lean = random() > 0.68 ? (random() - 0.5) * 0.07 : 0;
+        const localX = x + thickness / 2;
+        books.push({
+          id,
+          title,
+          author: authors[(bookNumber + rowIndex) % authors.length],
+          assetPiece: slot.assetPiece,
+          position: placeOnBookcase(bookcase, localX, row.plankTop + height / 2, row.spineFrontZ - depth / 2),
+          rotationY: yaw,
+          height,
+          depth,
+          thickness,
+          lean,
+          leather: LEATHER_PALETTE[paletteIndex],
+          roughness: 0.55 + random() * 0.3,
+          brightness,
+        });
+        x += thickness + (gaps[column] ?? 0);
+        bookNumber += 1;
+      });
     });
   });
+
   return books;
 })();
-

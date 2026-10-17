@@ -7,8 +7,8 @@ export function Dust() {
   return (
     <Sparkles
       count={130}
-      position={[0, 1.55, -1]}
-      scale={[10, 3.2, 10]}
+      position={[0, 1.45, -0.5]}
+      scale={[7, 2.8, 7.8]}
       size={2}
       speed={0.22}
       opacity={0.52}

@@ -29,3 +29,4 @@ canvas { display: block; }
 
 .scene-label { position: fixed; top: 16px; left: 18px; padding: 8px 11px; border: 1px solid #776344; border-radius: 4px; background: #211c17c9; color: #d7c19c; font: 12px Arial, sans-serif; pointer-events: none; }
 
+

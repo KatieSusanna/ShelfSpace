@@ -4,7 +4,6 @@ import { Canvas } from '@react-three/fiber';
 import { useCallback, useEffect, useState } from 'react';
 import { Player } from '@/components/scene/Player';
 import { Room } from '@/components/scene/Room';
-import { ReviewPanel } from '@/components/ui/ReviewPanel';
 import { ScanBookButton } from '@/components/ui/scanBookButton';
 import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 import { useReviewStore } from '@/store/reviews';
@@ -17,7 +16,7 @@ function PointerHint() {
     document.addEventListener('pointerlockchange', updateLock);
     return () => document.removeEventListener('pointerlockchange', updateLock);
   }, []);
-  return locked ? null : <div className="pointer-hint">Click to look around · WASD to move · Esc to release</div>;
+  return locked ? null : <div className="pointer-hint">WASD to move · Ctrl to crouch · click the room to look around · Esc to release</div>;
 }
 
 function Crosshair() {
@@ -34,11 +33,13 @@ export default function Home() {
   const [selectedBook, setSelectedBook] = useState<ShelfBook | null>(null);
   const [returning, setReturning] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannedIsbn, setScannedIsbn] = useState<string | null>(null);
   const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
   const onBookSelected = useCallback((book: ShelfBook) => setSelectedBook(book), []);
   const openBookScanner = useCallback(() => {
     if (document.pointerLockElement) document.exitPointerLock();
+    setScannedIsbn(null);
     setScannerOpen(true);
   }, []);
   const closePanel = useCallback(() => {
@@ -46,6 +47,25 @@ export default function Home() {
     setReturning(true);
     returnBook(selectedBook.id, () => { setSelectedBook(null); setReturning(false); });
   }, [returning, selectedBook]);
+
+  useEffect(() => {
+    if (!selectedBook) return;
+    const returnOnRightClick = (event: MouseEvent) => {
+      if (event.button !== 2 || returning) return;
+      event.preventDefault();
+      event.stopPropagation();
+      closePanel();
+    };
+    const onContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('pointerdown', returnOnRightClick, true);
+    window.addEventListener('contextmenu', onContextMenu, true);
+    return () => {
+      window.removeEventListener('pointerdown', returnOnRightClick, true);
+      window.removeEventListener('contextmenu', onContextMenu, true);
+    };
+  }, [closePanel, returning, selectedBook]);
 
   return (
     <main className="app-shell">
@@ -61,11 +81,19 @@ export default function Home() {
       <ScanBookButton onClick={openBookScanner} />
       {scannerOpen && (
         <BookBarcodeScanner
-          onISBN={() => setScannerOpen(false)}
+          onISBN={(isbn) => {
+            setScannedIsbn(isbn);
+            setScannerOpen(false);
+          }}
           onClose={() => setScannerOpen(false)}
         />
       )}
-      {selectedBook && <ReviewPanel book={selectedBook} onClose={closePanel} />}
+      {scannedIsbn && (
+        <div className="library-status" style={{ top: 124 }}>
+          Scanned ISBN: {scannedIsbn}
+        </div>
+      )}
+      {selectedBook && <div className="return-book-prompt">{returning ? 'Returning book to shelf…' : 'Right-click to return book to shelf'}</div>}
     </main>
   );
 }

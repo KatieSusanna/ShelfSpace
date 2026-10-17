@@ -1,7 +1,8 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { DoubleSide } from 'three';
+import { DoubleSide, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three';
+import { useTexture } from '@react-three/drei';
 import { BOOKCASES, ROOM, WINDOW_SEAT } from '@/config/layout';
 import { Bookcase } from '@/components/Bookcase';
 import { Lighting } from './Lighting';
@@ -140,6 +141,31 @@ function LoungeAndWindowSeat() {
   );
 }
 
+function TexturedFloor() {
+  const [colorMap, normalMap, roughnessMap] = useTexture([
+    '/models/floor/WoodFloor070_Color.jpg',
+    '/models/floor/WoodFloor070_NormalGL.jpg',
+    '/models/floor/WoodFloor070_Roughness.jpg',
+  ]);
+
+  useEffect(() => {
+    for (const texture of [colorMap, normalMap, roughnessMap]) {
+      texture.wrapS = RepeatWrapping;
+      texture.wrapT = RepeatWrapping;
+      texture.repeat.set(4, 4);
+      texture.needsUpdate = true;
+    }
+    colorMap.colorSpace = SRGBColorSpace;
+  }, [colorMap, normalMap, roughnessMap]);
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
+      <planeGeometry args={[ROOM.width, ROOM.depth]} />
+      <meshStandardMaterial map={colorMap} normalMap={normalMap} roughnessMap={roughnessMap} roughness={0.9} normalScale={new Vector2(0.3, 0.3)} />
+    </mesh>
+  );
+}
+
 export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => void }) {
   const [showBookSlots, setShowBookSlots] = useState(false);
   useEffect(() => {
@@ -159,10 +185,7 @@ export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => 
       <Lighting />
       <Dust />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow={false}>
-        <planeGeometry args={[ROOM.width, ROOM.depth]} />
-        <meshStandardMaterial color="#514235" roughness={0.95} />
-      </mesh>
+      <TexturedFloor />
       <mesh position={[0, ROOM.height / 2, -ROOM.depth / 2]}>
         <boxGeometry args={[ROOM.width, ROOM.height, ROOM.wallThickness]} />
         <meshStandardMaterial color="#33291f" side={DoubleSide} roughness={0.92} />

@@ -16,7 +16,7 @@ type BookcaseProps = {
 
 function useBookcaseScene() {
   return useLoader(FBXLoader, '/models/bookcase.fbx', (loader) => {
-    loader.setResourcePath('/models/textures/');
+    loader.setResourcePath('/models/bookcase/textures/');
     // The FBX embeds texture names with spaces; the ZIP stores the same names with underscores.
     const textureNameFixes: Record<string, string> = {
       'Victorian Bookcase Tall_BaseColor_sRGB.png': 'Victorian_Bookcase_Tall_BaseColor_sRGB.png',
@@ -112,13 +112,10 @@ function CompactBookcase() {
   const scene = useBookcaseScene();
   const shelfMaterial = useMemo(() => {
     const source = scene.getObjectByName('Victorian_Bookcase_Tall');
-    let sourceMaterial: THREE.Material | null = null;
-    source?.traverse((object) => {
-      if (!sourceMaterial && object instanceof THREE.Mesh) {
-        const material = Array.isArray(object.material) ? object.material[0] : object.material;
-        sourceMaterial = material;
-      }
-    });
+    const sourceMesh = source?.getObjectByProperty('isMesh', true) as THREE.Mesh | undefined;
+    const sourceMaterial = sourceMesh
+      ? Array.isArray(sourceMesh.material) ? sourceMesh.material[0] : sourceMesh.material
+      : null;
     if (!sourceMaterial) return new THREE.MeshStandardMaterial({ color: '#49301f', roughness: 0.82 });
     return sourceMaterial.clone();
   }, [scene]);

@@ -5,31 +5,64 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { hitsObstacle, ROOM } from '@/config/layout';
+import { useSelectionState } from '@/lib/useBookSelection';
 
 const PLAYER_HEIGHT = 1.7;
+const CROUCH_HEIGHT = 1.0;
 const PLAYER_RADIUS = 0.28;
+const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight']);
+const LETTER_KEYS: Record<string, string> = { w: 'KeyW', a: 'KeyA', s: 'KeyS', d: 'KeyD' };
 
 // Keyboard movement uses elapsed frame time, so it feels the same on fast and slow laptops.
 export function Player() {
   const { camera, gl } = useThree();
   const keys = useRef(new Set<string>());
+  const heldBookId = useSelectionState((state) => state.heldBookId);
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => keys.current.add(event.code);
-    const onKeyUp = (event: KeyboardEvent) => keys.current.delete(event.code);
+    const canvas = gl.domElement;
+    const previousTabIndex = canvas.tabIndex;
+    canvas.tabIndex = 0;
+    const focusCanvas = () => canvas.focus({ preventScroll: true });
+    canvas.addEventListener('pointerdown', focusCanvas);
+
+    const normalizeKey = (event: KeyboardEvent) => {
+      if (MOVEMENT_KEYS.has(event.code)) return event.code;
+      const letterKey = LETTER_KEYS[event.key.toLowerCase()];
+      if (letterKey) return letterKey;
+      if (event.key === 'Control') return event.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT ? 'ControlRight' : 'ControlLeft';
+      return event.code;
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = normalizeKey(event);
+      if (!MOVEMENT_KEYS.has(key)) return;
+      if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      keys.current.add(key);
+    };
     window.addEventListener('keydown', onKeyDown);
+    const onKeyUp = (event: KeyboardEvent) => keys.current.delete(normalizeKey(event));
+    const onBlur = () => keys.current.clear();
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
     return () => {
+      canvas.removeEventListener('pointerdown', focusCanvas);
+      canvas.tabIndex = previousTabIndex;
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
     };
-  }, []);
+  }, [gl.domElement]);
 
   useFrame((_, delta) => {
-    if (document.pointerLockElement !== gl.domElement) return;
-
+    const canvasFocused = document.activeElement === gl.domElement;
+    if (document.pointerLockElement !== gl.domElement && !canvasFocused && !heldBookId) return;
     // Ignore unusually large frame gaps to avoid a sudden jump after tab switching.
     const step = Math.min(delta, 0.05);
+    const crouching = keys.current.has('ControlLeft') || keys.current.has('ControlRight');
+    const targetHeight = crouching ? CROUCH_HEIGHT : PLAYER_HEIGHT;
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, targetHeight, 12, step);
+
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
     direction.y = 0;
@@ -53,7 +86,6 @@ export function Player() {
     // Test the two directions separately so the player can slide along a shelf edge.
     if (!hitsObstacle(nextX, camera.position.z, PLAYER_RADIUS)) camera.position.x = nextX;
     if (!hitsObstacle(camera.position.x, nextZ, PLAYER_RADIUS)) camera.position.z = nextZ;
-    camera.position.y = PLAYER_HEIGHT;
   });
 
   // Keep the 3D look controls on the canvas so overlay buttons remain clickable.

@@ -18,7 +18,7 @@ export function BookPageReview({ book }: { book: ShelfBook }) {
 
   useEffect(() => {
     setPagesReady(false);
-    const timer = window.setTimeout(() => setPagesReady(true), 1100);
+    const timer = window.setTimeout(() => setPagesReady(true), 1450);
     return () => window.clearTimeout(timer);
   }, [book.id]);
 
@@ -46,8 +46,8 @@ export function BookPageReview({ book }: { book: ShelfBook }) {
       <label className="book-page-review-title" htmlFor="book-page-review-text">Review</label>
       <textarea
         id="book-page-review-text"
-        maxLength={280}
-        rows={6}
+        maxLength={1500}
+        rows={12}
         value={review}
         onChange={(event) => updateReview(event.target.value)}
         placeholder="Write a short paragraph..."

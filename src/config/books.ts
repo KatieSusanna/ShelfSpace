@@ -96,6 +96,7 @@ export const SHELF_BOOKS: ShelfBook[] = (() => {
           id,
           title,
           author: authors[(bookNumber + rowIndex) % authors.length],
+          description: `A story of mystery and discovery inspired by ${title.toLowerCase()}.`,
           assetPiece: slot.assetPiece,
           position: placeOnBookcase(bookcase, localX, row.plankTop + height / 2, row.spineFrontZ - depth / 2),
           rotationY: yaw,

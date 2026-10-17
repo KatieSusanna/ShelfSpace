@@ -17,7 +17,7 @@ function PointerHint() {
     document.addEventListener('pointerlockchange', updateLock);
     return () => document.removeEventListener('pointerlockchange', updateLock);
   }, []);
-  return locked ? null : <div className="pointer-hint">WASD to move · Ctrl to crouch · left-click a white-outlined book to pick it up</div>;
+  return locked ? null : <div className="pointer-hint">Click the room to aim. The circle in the middle highlights a book; left-click to pick it up.</div>;
 }
 
 function Crosshair() {

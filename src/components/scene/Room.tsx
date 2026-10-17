@@ -239,10 +239,7 @@ export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => 
       <Dust />
 
       <TexturedFloor />
-      <mesh position={[0, ROOM.height / 2, -ROOM.depth / 2]}>
-        <boxGeometry args={[ROOM.width, ROOM.height, ROOM.wallThickness]} />
-        <meshStandardMaterial color="#33291f" side={DoubleSide} roughness={0.92} />
-      </mesh>
+      <FireplaceWall />
       <mesh position={[-ROOM.width / 2, ROOM.height / 2, 0]}>
         <boxGeometry args={[ROOM.wallThickness, ROOM.height, ROOM.depth]} />
         <meshStandardMaterial color="#3c3025" side={DoubleSide} roughness={0.92} />

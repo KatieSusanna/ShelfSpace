@@ -4,7 +4,6 @@ import { Canvas } from '@react-three/fiber';
 import { useCallback, useEffect, useState } from 'react';
 import { Player } from '@/components/scene/Player';
 import { Room } from '@/components/scene/Room';
-import { ReviewPanel } from '@/components/ui/ReviewPanel';
 import { ScanBookButton } from '@/components/ui/scanBookButton';
 import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 import { useReviewStore } from '@/store/reviews';
@@ -49,6 +48,25 @@ export default function Home() {
     returnBook(selectedBook.id, () => { setSelectedBook(null); setReturning(false); });
   }, [returning, selectedBook]);
 
+  useEffect(() => {
+    if (!selectedBook) return;
+    const returnOnRightClick = (event: MouseEvent) => {
+      if (event.button !== 2 || returning) return;
+      event.preventDefault();
+      event.stopPropagation();
+      closePanel();
+    };
+    const onContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('pointerdown', returnOnRightClick, true);
+    window.addEventListener('contextmenu', onContextMenu, true);
+    return () => {
+      window.removeEventListener('pointerdown', returnOnRightClick, true);
+      window.removeEventListener('contextmenu', onContextMenu, true);
+    };
+  }, [closePanel, returning, selectedBook]);
+
   return (
     <main className="app-shell">
       <Canvas camera={{ position: [0, 1.7, 3.1], fov: 70 }} dpr={[1, 2]}>
@@ -75,7 +93,7 @@ export default function Home() {
           Scanned ISBN: {scannedIsbn}
         </div>
       )}
-      {selectedBook && <ReviewPanel book={selectedBook} onClose={closePanel} />}
+      {selectedBook && <div className="return-book-prompt">{returning ? 'Returning book to shelf…' : 'Right-click to return book to shelf'}</div>}
     </main>
   );
 }

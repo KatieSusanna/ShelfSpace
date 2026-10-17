@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Fragment, Suspense, useEffect, useMemo, useState } from 'react';
 import { DoubleSide, NoColorSpace, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three';
 import { useTexture } from '@react-three/drei';
-import { BOOKCASES, ROOM, WINDOW_SEAT } from '@/config/layout';
+import { BOOKCASES, FIREPLACE_WINDOWS, ROOM, WINDOW_SEAT } from '@/config/layout';
 import { Bookcase } from '@/components/Bookcase';
 import { Lighting } from './Lighting';
 import { Dust } from './Dust';
@@ -14,6 +14,7 @@ import type { ShelfBook } from '@/lib/useBookSelection';
 import { Fireplace } from './Fireplace';
 import { Beanbags } from './Beanbags';
 import { Carpet } from './Carpet';
+import { GothicWindow6 } from './GothicWindow6';
 
 function WoodPlankMaterial({ width, height }: { width: number; height: number }) {
   const [baseColorSource, normalSource, packedSource] = useTexture([
@@ -93,7 +94,7 @@ function EastWindow() {
   const centerZ = ROOM.windowCenterZ;
   const width = ROOM.windowWidth;
   const height = ROOM.windowHeight;
-  const bottom = 1.08;
+  const bottom = ROOM.windowBottom;
   const top = bottom + height;
   const wallX = ROOM.width / 2;
   const windowStart = centerZ - width / 2;
@@ -104,7 +105,6 @@ function EastWindow() {
     { depth: leftDepth, z: (-ROOM.depth / 2 + windowStart) / 2 },
     { depth: rightDepth, z: (windowEnd + ROOM.depth / 2) / 2 },
   ];
-  const frame = '#765334';
   return (
     <>
       <mesh position={[wallX, bottom / 2, 0]}>
@@ -121,21 +121,46 @@ function EastWindow() {
           <meshStandardMaterial color="#3c3025" roughness={0.92} />
         </mesh>
       ))}
-      <mesh position={[wallX - 0.06, (bottom + top) / 2, centerZ]}>
-        <boxGeometry args={[0.025, height - 0.08, width - 0.08]} />
-        <meshStandardMaterial color="#78909a" emissive="#283b48" emissiveIntensity={0.25} roughness={0.22} metalness={0.12} />
-      </mesh>
-      {[-1, 1].map((side) => (
-        <mesh key={side} position={[wallX - 0.07, (bottom + top) / 2, centerZ + side * (width / 2 - 0.035)]}>
-          <boxGeometry args={[0.09, height + 0.12, 0.07]} />
-          <meshStandardMaterial color={frame} roughness={0.75} />
+      <Suspense fallback={null}>
+        <GothicWindow6 position={[wallX - 0.04, bottom, centerZ]} rotation={[0, -Math.PI / 2, 0]} width={width} height={height} />
+      </Suspense>
+    </>
+  );
+}
+
+function FireplaceWall() {
+  const { width, height, bottom, centersX } = FIREPLACE_WINDOWS;
+  const wallZ = -ROOM.depth / 2;
+  const leftEdges = centersX.map((center) => center - width / 2);
+  const rightEdges = centersX.map((center) => center + width / 2);
+  const spans = [
+    [-ROOM.width / 2, leftEdges[0]],
+    [rightEdges[0], leftEdges[1]],
+    [rightEdges[1], ROOM.width / 2],
+  ];
+  const material = <meshStandardMaterial color="#33291f" roughness={0.92} />;
+  return (
+    <>
+      {spans.map(([start, end], index) => (
+        <mesh key={`span-${index}`} position={[(start + end) / 2, ROOM.height / 2, wallZ]}>
+          <boxGeometry args={[end - start, ROOM.height, ROOM.wallThickness]} />
+          {material}
         </mesh>
       ))}
-      {[bottom, top].map((y) => (
-        <mesh key={y} position={[wallX - 0.07, y, centerZ]}>
-          <boxGeometry args={[0.09, 0.07, width + 0.08]} />
-          <meshStandardMaterial color={frame} roughness={0.75} />
-        </mesh>
+      {centersX.map((center) => (
+        <Fragment key={center}>
+          <mesh position={[center, bottom / 2, wallZ]}>
+            <boxGeometry args={[width, bottom, ROOM.wallThickness]} />
+            {material}
+          </mesh>
+          <mesh position={[center, (bottom + height + ROOM.height) / 2, wallZ]}>
+            <boxGeometry args={[width, ROOM.height - bottom - height, ROOM.wallThickness]} />
+            {material}
+          </mesh>
+          <Suspense fallback={null}>
+            <GothicWindow6 position={[center, bottom, wallZ + ROOM.wallThickness / 2 + 0.015]} width={width} height={height} />
+          </Suspense>
+        </Fragment>
       ))}
     </>
   );

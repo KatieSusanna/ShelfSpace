@@ -12,8 +12,9 @@ export const ROOM = {
   wallThickness: 0.2,
   doorWidth: 1.6,
   doorHeight: 2.25,
-  windowWidth: 1.45,
-  windowHeight: 1.05,
+  windowWidth: 1.3,
+  windowHeight: 2.2,
+  windowBottom: 0.55,
   windowCenterZ: -1.0,
 };
 
@@ -83,6 +84,13 @@ export const FIREPLACE = {
   scale: 0.011,
   width: 1.518,
   depth: 0.906,
+};
+
+export const FIREPLACE_WINDOWS = {
+  width: 1.3,
+  height: 2.2,
+  bottom: 0.55,
+  centersX: [-2.35, 2.35] as const,
 };
 
 export const WINDOW_SEAT = {

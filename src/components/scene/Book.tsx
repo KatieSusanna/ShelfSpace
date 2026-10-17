@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
 import { registerBook, useSelectionState, type ShelfBook } from '@/lib/useBookSelection';
@@ -35,6 +35,38 @@ function makeSpineLabel(title: string, author: string) {
     lines.forEach((titleLine, index) => context.fillText(titleLine, canvas.width / 2, titleStart + index * lineHeight, 58));
     context.fillStyle = '#e0d2b4'; context.font = '9px Georgia';
     context.fillText(author, canvas.width / 2, canvas.height * 0.75, 58);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function makeCoverLabel(title: string, leather: string) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512; canvas.height = 768;
+  const context = canvas.getContext('2d');
+  if (context) {
+    context.fillStyle = leather;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.strokeStyle = '#d6b777';
+    context.lineWidth = 8;
+    context.strokeRect(24, 24, canvas.width - 48, canvas.height - 48);
+    context.fillStyle = '#f2e5cc';
+    context.textAlign = 'center'; context.textBaseline = 'middle';
+    context.font = 'bold 46px Georgia';
+    context.shadowColor = 'rgba(20, 12, 7, 0.65)'; context.shadowBlur = 5;
+    const words = title.split(/\s+/);
+    const lines: string[] = [];
+    let line = '';
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && context.measureText(candidate).width > 430) { lines.push(line); line = word; }
+      else line = candidate;
+    }
+    if (line) lines.push(line);
+    const lineHeight = 58;
+    const start = canvas.height * 0.38 - ((lines.length - 1) * lineHeight) / 2;
+    lines.forEach((text, index) => context.fillText(text, canvas.width / 2, start + index * lineHeight, 440));
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -107,20 +139,38 @@ function makeNeutralTexture(source: THREE.Texture | null): THREE.CanvasTexture |
 function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; material: THREE.MeshStandardMaterial }) {
   const group = useRef<THREE.Group>(null);
   const hovered = useSelectionState((state) => state.hoveredId === book.id);
+  const outlineGeometry = useMemo(() => {
+    const box = new THREE.BoxGeometry(piece.size.x, piece.size.y, piece.size.z);
+    const edges = new THREE.EdgesGeometry(box);
+    box.dispose();
+    return edges;
+  }, [piece]);
   const label = useMemo(() => makeSpineLabel(book.title, book.author), [book.author, book.title]);
+  const cover = useMemo(() => makeCoverLabel(book.title, book.leather), [book.leather, book.title]);
   const labelGeometry = useMemo(() => new THREE.PlaneGeometry(book.thickness * 0.82, book.height * 0.86), [book.height, book.thickness]);
+  const coverGeometry = useMemo(() => new THREE.PlaneGeometry(book.depth * 0.86, book.height * 0.9), [book.depth, book.height]);
   const labelMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map: label, transparent: true, depthWrite: false, toneMapped: false }), [label]);
+  const coverMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map: cover, side: THREE.DoubleSide, toneMapped: false }), [cover]);
+  // Keep the original shelf transform out of JSX: selection animations and camera
+  // attachment are imperative, so a hover rerender must not snap the book back.
+  useLayoutEffect(() => {
+    if (!group.current) return;
+    group.current.position.fromArray(book.position);
+    group.current.rotation.set(0, book.rotationY, book.lean);
+  }, [book.lean, book.position, book.rotationY]);
   useEffect(() => { registerBook(book.id, group.current); return () => registerBook(book.id, null); }, [book.id]);
-  useEffect(() => () => { label.dispose(); labelGeometry.dispose(); labelMaterial.dispose(); }, [label, labelGeometry, labelMaterial]);
+  useEffect(() => () => { label.dispose(); cover.dispose(); labelGeometry.dispose(); coverGeometry.dispose(); labelMaterial.dispose(); coverMaterial.dispose(); outlineGeometry.dispose(); }, [cover, coverGeometry, coverMaterial, label, labelGeometry, labelMaterial, outlineGeometry]);
   return (
-    <group ref={group} position={book.position} rotation={[0, book.rotationY, book.lean]} userData={{ bookId: book.id }}>
+    <group ref={group} userData={{ bookId: book.id }}>
       <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
-        {hovered && <mesh scale={[1.04, 1.02, 1.02]}>
-          <boxGeometry args={[piece.size.x, piece.size.y, piece.size.z]} />
-          <meshBasicMaterial color="#e9b858" wireframe transparent opacity={0.8} depthTest={false} />
-        </mesh>}
+        {hovered && <group scale={[1.04, 1.03, 1.03]}>
+          <lineSegments geometry={outlineGeometry}>
+            <lineBasicMaterial color="#ffffff" transparent opacity={0.95} depthTest />
+          </lineSegments>
+        </group>}
       </mesh>
       <mesh geometry={labelGeometry} material={labelMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
+      <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
     </group>
   );
 }

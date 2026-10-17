@@ -5,6 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { hitsObstacle, ROOM } from '@/config/layout';
+import { useSelectionState } from '@/lib/useBookSelection';
 
 const PLAYER_HEIGHT = 1.7;
 const CROUCH_HEIGHT = 1.0;
@@ -16,6 +17,7 @@ const LETTER_KEYS: Record<string, string> = { w: 'KeyW', a: 'KeyA', s: 'KeyS', d
 export function Player() {
   const { camera, gl } = useThree();
   const keys = useRef(new Set<string>());
+  const heldBookId = useSelectionState((state) => state.heldBookId);
 
   useEffect(() => {
     const normalizeKey = (event: KeyboardEvent) => {
@@ -45,6 +47,7 @@ export function Player() {
   }, [gl.domElement]);
 
   useFrame((_, delta) => {
+    if (document.pointerLockElement !== gl.domElement && !heldBookId) return;
     // Ignore unusually large frame gaps to avoid a sudden jump after tab switching.
     const step = Math.min(delta, 0.05);
     const crouching = keys.current.has('ControlLeft') || keys.current.has('ControlRight');

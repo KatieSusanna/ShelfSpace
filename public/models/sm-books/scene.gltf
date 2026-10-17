@@ -89,13 +89,13 @@
   ],
   "images": [
     {
-      "uri": "textures/M_Books_BaseColor.jpeg"
+      "uri": "textures/optimized/M_Books_BaseColor_2K.jpeg"
     },
     {
-      "uri": "textures/M_Books_ORM.jpeg"
+      "uri": "textures/optimized/M_Books_ORM_2K.jpeg"
     },
     {
-      "uri": "textures/M_Books_Normal.png"
+      "uri": "textures/optimized/M_Books_Normal_2K.png"
     }
   ],
   "materials": [

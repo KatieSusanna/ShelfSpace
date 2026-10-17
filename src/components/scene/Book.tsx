@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
-import { registerBook, useSelectionState, type ShelfBook } from '@/lib/useBookSelection';
+import { registerBook, type ShelfBook } from '@/lib/useBookSelection';
 
 type Piece = { geometry: THREE.BufferGeometry; size: THREE.Vector3 };
 type Props = { book: ShelfBook; pieces: Piece[]; materials: THREE.MeshStandardMaterial[] };
@@ -50,30 +50,30 @@ function makeSpineLabel(title: string, author: string) {
 
 function makeCoverLabel(title: string, leather: string) {
   const canvas = document.createElement('canvas');
-  canvas.width = 512; canvas.height = 768;
+  canvas.width = 256; canvas.height = 384;
   const context = canvas.getContext('2d');
   if (context) {
     context.fillStyle = leather;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.strokeStyle = '#d6b777';
-    context.lineWidth = 8;
-    context.strokeRect(24, 24, canvas.width - 48, canvas.height - 48);
+    context.lineWidth = 4;
+    context.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
     context.fillStyle = '#f2e5cc';
     context.textAlign = 'center'; context.textBaseline = 'middle';
-    context.font = 'bold 46px Georgia';
+    context.font = 'bold 23px Georgia';
     context.shadowColor = 'rgba(20, 12, 7, 0.65)'; context.shadowBlur = 5;
     const words = title.split(/\s+/);
     const lines: string[] = [];
     let line = '';
     for (const word of words) {
       const candidate = line ? `${line} ${word}` : word;
-      if (line && context.measureText(candidate).width > 430) { lines.push(line); line = word; }
+      if (line && context.measureText(candidate).width > 215) { lines.push(line); line = word; }
       else line = candidate;
     }
     if (line) lines.push(line);
-    const lineHeight = 58;
+    const lineHeight = 29;
     const start = canvas.height * 0.38 - ((lines.length - 1) * lineHeight) / 2;
-    lines.forEach((text, index) => context.fillText(text, canvas.width / 2, start + index * lineHeight, 440));
+    lines.forEach((text, index) => context.fillText(text, canvas.width / 2, start + index * lineHeight, 220));
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -130,7 +130,11 @@ function makeNeutralTexture(source: THREE.Texture | null): THREE.CanvasTexture |
   if (!image) return null;
   const canvas = document.createElement('canvas');
   const dimensions = image as { width?: number; height?: number };
-  canvas.width = dimensions.width ?? 512; canvas.height = dimensions.height ?? 512;
+  const sourceWidth = dimensions.width ?? 512;
+  const sourceHeight = dimensions.height ?? 512;
+  const scale = Math.min(1, 1024 / Math.max(sourceWidth, sourceHeight));
+  canvas.width = Math.round(sourceWidth * scale);
+  canvas.height = Math.round(sourceHeight * scale);
   const context = canvas.getContext('2d');
   if (!context) return null;
   context.filter = 'grayscale(1) brightness(1.5)';
@@ -145,7 +149,8 @@ function makeNeutralTexture(source: THREE.Texture | null): THREE.CanvasTexture |
 
 function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; material: THREE.MeshStandardMaterial }) {
   const group = useRef<THREE.Group>(null);
-  const hovered = useSelectionState((state) => state.hoveredId === book.id);
+  const hitMesh = useRef<THREE.Mesh>(null);
+  const highlight = useRef<THREE.Group>(null);
   const outlineGeometry = useMemo(() => {
     const box = new THREE.BoxGeometry(piece.size.x, piece.size.y, piece.size.z);
     const edges = new THREE.EdgesGeometry(box);
@@ -154,6 +159,7 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   }, [piece]);
   const label = useMemo(() => makeSpineLabel(book.title, book.author), [book.author, book.title]);
   const cover = useMemo(() => makeCoverLabel(book.title, book.leather), [book.leather, book.title]);
+  const hitGeometry = useMemo(() => new THREE.BoxGeometry(book.thickness, book.height, book.depth), [book.depth, book.height, book.thickness]);
   const labelGeometry = useMemo(() => new THREE.PlaneGeometry(book.thickness * 0.82, book.height * 0.86), [book.height, book.thickness]);
   const coverGeometry = useMemo(() => new THREE.PlaneGeometry(book.depth * 0.86, book.height * 0.9), [book.depth, book.height]);
   const labelMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map: label, transparent: true, depthWrite: false, toneMapped: false }), [label]);
@@ -165,8 +171,11 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
     group.current.position.fromArray(book.position);
     group.current.rotation.set(0, book.rotationY, book.lean);
   }, [book.lean, book.position, book.rotationY]);
-  useEffect(() => { registerBook(book.id, group.current); return () => registerBook(book.id, null); }, [book.id]);
-  useEffect(() => () => { label.dispose(); cover.dispose(); labelGeometry.dispose(); coverGeometry.dispose(); labelMaterial.dispose(); coverMaterial.dispose(); outlineGeometry.dispose(); }, [cover, coverGeometry, coverMaterial, label, labelGeometry, labelMaterial, outlineGeometry]);
+  useEffect(() => {
+    registerBook(book.id, group.current, hitMesh.current, highlight.current);
+    return () => registerBook(book.id, null, null, null);
+  }, [book.id]);
+  useEffect(() => () => { label.dispose(); cover.dispose(); labelGeometry.dispose(); coverGeometry.dispose(); hitGeometry.dispose(); labelMaterial.dispose(); coverMaterial.dispose(); outlineGeometry.dispose(); }, [cover, coverGeometry, coverMaterial, hitGeometry, label, labelGeometry, labelMaterial, outlineGeometry]);
   return (
     <group ref={group} userData={{ bookId: book.id }}>
       <mesh
@@ -177,12 +186,17 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
         dispose={null}
       />
       <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
+<<<<<<< HEAD
         {hovered && <group scale={[1.02, 1.02, 1.02]}>
+=======
+        <group ref={highlight} visible={false} scale={[1.04, 1.03, 1.03]}>
+>>>>>>> 2f112e96da979dd266ec28ed2c5005451a604215
           <lineSegments geometry={outlineGeometry}>
             <lineBasicMaterial color="#ffffff" transparent opacity={1} depthTest />
           </lineSegments>
-        </group>}
+        </group>
       </mesh>
+      <mesh ref={hitMesh} geometry={hitGeometry} visible={false} />
       <mesh geometry={labelGeometry} material={labelMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
       <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
     </group>

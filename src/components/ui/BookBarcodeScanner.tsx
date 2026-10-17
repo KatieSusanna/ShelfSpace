@@ -14,11 +14,22 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
   const onISBNRef = useRef(onISBN);
   const onCloseRef = useRef(onClose);
   const completedRef = useRef(false);
-  const [message, setMessage] = useState('Allow camera access, then point it at the barcode on the back of the book.');
+  const [message, setMessage] = useState('');
 
   onISBNRef.current = onISBN;
   onCloseRef.current = onClose;
   console.log('open scanner clicked')
+
+  useEffect(() => {
+    if (!message) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage('');
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
 
   useEffect(() => {
     let disposed = false;
@@ -54,7 +65,15 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
             }
 
             completedRef.current = true;
-            setMessage(`ISBN found: ${isbn}`);
+            void fetch('/api/bookRetreival', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ isbn }),
+            });
+
+            setMessage('ISBN found.');
             void stopAndClear(activeScanner).then(() => {
               scannerRef.current = null;
               if (!disposed) onISBNRef.current(isbn);

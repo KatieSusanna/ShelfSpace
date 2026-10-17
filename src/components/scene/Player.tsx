@@ -56,7 +56,7 @@ export function Player() {
 
   useFrame((_, delta) => {
     const canvasFocused = document.activeElement === gl.domElement;
-    if (document.pointerLockElement !== gl.domElement && !canvasFocused && !heldBookId) return;
+    if (document.pointerLockElement === null && !canvasFocused && !heldBookId) return;
     // Ignore unusually large frame gaps to avoid a sudden jump after tab switching.
     const step = Math.min(delta, 0.05);
     const crouching = keys.current.has('ControlLeft') || keys.current.has('ControlRight');

@@ -7,6 +7,13 @@ import { registerBook, useSelectionState, type ShelfBook } from '@/lib/useBookSe
 
 type Piece = { geometry: THREE.BufferGeometry; size: THREE.Vector3 };
 type Props = { book: ShelfBook; pieces: Piece[]; materials: THREE.MeshStandardMaterial[] };
+const BOOK_PICK_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
+const BOOK_PICK_MATERIAL = new THREE.MeshBasicMaterial({
+  colorWrite: false,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+  toneMapped: false,
+});
 
 function makeSpineLabel(title: string, author: string) {
   const canvas = document.createElement('canvas');
@@ -162,10 +169,17 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   useEffect(() => () => { label.dispose(); cover.dispose(); labelGeometry.dispose(); coverGeometry.dispose(); labelMaterial.dispose(); coverMaterial.dispose(); outlineGeometry.dispose(); }, [cover, coverGeometry, coverMaterial, label, labelGeometry, labelMaterial, outlineGeometry]);
   return (
     <group ref={group} userData={{ bookId: book.id }}>
+      <mesh
+        geometry={BOOK_PICK_GEOMETRY}
+        material={BOOK_PICK_MATERIAL}
+        scale={[book.thickness * 0.96, book.height * 0.98, book.depth * 0.98]}
+        userData={{ bookPickTarget: true }}
+        dispose={null}
+      />
       <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
-        {hovered && <group scale={[1.04, 1.03, 1.03]}>
+        {hovered && <group scale={[1.02, 1.02, 1.02]}>
           <lineSegments geometry={outlineGeometry}>
-            <lineBasicMaterial color="#ffffff" transparent opacity={0.95} depthTest />
+            <lineBasicMaterial color="#ffffff" transparent opacity={1} depthTest />
           </lineSegments>
         </group>}
       </mesh>

@@ -77,6 +77,17 @@ export const BOOKCASES: BookcaseLayout[] = [
   ...doorWallShelves,
 ];
 
+// Candle tables sit farther in from the perimeter shelves to leave a broad aisle.
+export const CANDLE_TABLES = [
+  [-2.85, -3.3],
+  [2.85, -3.3],
+  [-2.85, 3.3],
+  [2.85, 3.3],
+] as const;
+
+// Three balanced pairs of tall bookcases receive grouped candles on their measured top surface.
+export const BOOKCASE_CANDLE_INDICES = [5, 10, 12, 13, 16, 19];
+
 // The fireplace FBX is authored in centimetres and faces along local +X.
 export const FIREPLACE = {
   position: [0, 0.009, -4.488] as [number, number, number],
@@ -122,6 +133,10 @@ const fireplaceFootprint: Obstacle = {
 };
 
 export const OBSTACLES: Obstacle[] = [...BOOKCASES.map(getFootprint), fireplaceFootprint];
+// Keep the player from walking through the four candle-table pedestals.
+for (const [x, z] of CANDLE_TABLES) {
+  OBSTACLES.push({ minX: x - 0.43, maxX: x + 0.43, minZ: z - 0.43, maxZ: z + 0.43 });
+}
 OBSTACLES.push({
   minX: WINDOW_SEAT.position[0] - WINDOW_SEAT.size[0] / 2,
   maxX: WINDOW_SEAT.position[0] + WINDOW_SEAT.size[0] / 2,

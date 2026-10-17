@@ -3,7 +3,7 @@
 import { Fragment, Suspense, useEffect, useMemo, useState } from 'react';
 import { DoubleSide, ExtrudeGeometry, NoColorSpace, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from 'three';
 import { useTexture } from '@react-three/drei';
-import { BOOKCASES, FIREPLACE_WINDOWS, ROOM, WINDOW_SEAT } from '@/config/layout';
+import { BOOKCASES, BOOKCASE_CANDLE_INDICES, FIREPLACE_WINDOWS, ROOM, WINDOW_SEAT } from '@/config/layout';
 import { Bookcase } from '@/components/Bookcase';
 import { Lighting } from './Lighting';
 import { Dust } from './Dust';
@@ -15,6 +15,7 @@ import { Fireplace } from './Fireplace';
 import { Beanbags } from './Beanbags';
 import { Carpet } from './Carpet';
 import { GothicWindow6 } from './GothicWindow6';
+import { CandleTables } from './CandleTables';
 
 function WoodPlankMaterial({ width, height }: { width: number; height: number }) {
   const [baseColorSource, normalSource, packedSource] = useTexture([
@@ -305,6 +306,7 @@ export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => 
         <WoodPlankMaterial width={ROOM.width} height={ROOM.depth} />
       </mesh>
       <LoungeAndWindowSeat />
+      <Suspense fallback={null}><CandleTables /></Suspense>
 
       {BOOKCASES.map((bookcase, index) => (
         <Bookcase
@@ -313,6 +315,8 @@ export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => 
           position={bookcase.position}
           rotation={bookcase.rotation}
           scale={bookcase.scale}
+          hasCandles={BOOKCASE_CANDLE_INDICES.includes(index)}
+          candleVariant={index}
         />
       ))}
       <Fireplace />

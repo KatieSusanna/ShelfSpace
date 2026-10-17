@@ -4,6 +4,7 @@ import { useLoader } from '@react-three/fiber';
 import { Component, Suspense, type ReactNode, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { BookshelfCandleCluster } from '@/components/scene/CandleTables';
 
 export type BookcaseKind = 'tall' | 'small';
 
@@ -12,6 +13,8 @@ type BookcaseProps = {
   position: [number, number, number];
   rotation?: [number, number, number];
   scale?: number | [number, number, number];
+  hasCandles?: boolean;
+  candleVariant?: number;
 };
 
 function useBookcaseScene() {
@@ -32,13 +35,28 @@ function useBookcaseScene() {
   });
 }
 
-function LoadedBookcase() {
+function reduceShelfShine(material: THREE.Material) {
+  if (material instanceof THREE.MeshStandardMaterial) {
+    material.metalness = 0;
+    material.roughness = 0.94;
+    material.roughnessMap = null;
+    material.envMapIntensity = 0.16;
+  } else if (material instanceof THREE.MeshPhongMaterial) {
+    material.shininess = 3;
+    material.specular.set('#160f09');
+    material.specularMap = null;
+    material.reflectivity = 0;
+  }
+  material.needsUpdate = true;
+}
+
+function LoadedBookcase({ hasCandles, candleVariant }: { hasCandles: boolean; candleVariant: number }) {
   const scene = useBookcaseScene();
   const sourceName = 'Victorian_Bookcase_Tall';
   const source = scene.getObjectByName(sourceName);
   if (!source) throw new Error(`The FBX model does not contain ${sourceName}.`);
 
-  const bookcase = useMemo(() => {
+  const { bookcase, topY } = useMemo(() => {
     const clone = source.clone(true);
     // Normalize the FBX's centimetre scale. Its height becomes about 1.95 m before room scaling.
     clone.position.set(0, 0, 0);
@@ -46,9 +64,18 @@ function LoadedBookcase() {
     // The source file stores the book rows as a few large merged meshes, not individual books.
     clone.traverse((object) => {
       // The actual shelf mesh says "Bookcase"; only hide children named "Books_*".
-      if (object instanceof THREE.Mesh && /[_\s]Books(?:[_\s]|$)/i.test(object.name)) object.visible = false;
+      if (object instanceof THREE.Mesh) {
+        if (/[_\s]Books(?:[_\s]|$)/i.test(object.name)) object.visible = false;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach(reduceShelfShine);
+      }
     });
-    return clone;
+    clone.updateMatrixWorld(true);
+    // Use the wooden frame bounds instead of the hidden book geometry so decorations
+    // sit on the physical crown of the case rather than above the book meshes.
+    const frame = clone.getObjectByName('Bookcase') ?? clone;
+    const bounds = new THREE.Box3().setFromObject(frame);
+    return { bookcase: clone, topY: bounds.max.y };
   }, [source]);
   useEffect(() => {
     bookcase.updateMatrixWorld(true);
@@ -74,7 +101,12 @@ function LoadedBookcase() {
     console.info(`${bookLike} book mesh group(s); ${mergedBookGroups} are large merged groups. Only those groups are hidden. Shelf mesh remains visible.`);
     console.groupEnd();
   }, [bookcase]);
-  return <primitive object={bookcase} />;
+  return (
+    <>
+      <primitive object={bookcase} />
+      {hasCandles && <BookshelfCandleCluster topY={topY} variant={candleVariant} />}
+    </>
+  );
 }
 
 function PlaceholderBookcase({ kind }: { kind: BookcaseKind }) {
@@ -117,7 +149,9 @@ function CompactBookcase() {
       ? Array.isArray(sourceMesh.material) ? sourceMesh.material[0] : sourceMesh.material
       : null;
     if (!sourceMaterial) return new THREE.MeshStandardMaterial({ color: '#49301f', roughness: 0.82 });
-    return sourceMaterial.clone();
+    const material = sourceMaterial.clone();
+    reduceShelfShine(material);
+    return material;
   }, [scene]);
   useEffect(() => () => shelfMaterial.dispose(), [shelfMaterial]);
   // A separate three tier frame avoids the six merged shelf boards in the FBX.
@@ -165,13 +199,13 @@ class ModelErrorBoundary extends Component<{ fallback: ReactNode; children: Reac
 }
 
 // The same room transform is used for both the downloaded model and the fallback.
-export function Bookcase({ kind, position, rotation = [0, 0, 0], scale = 1 }: BookcaseProps) {
+export function Bookcase({ kind, position, rotation = [0, 0, 0], scale = 1, hasCandles = false, candleVariant = 0 }: BookcaseProps) {
   return (
     <group position={position} rotation={rotation} scale={scale}>
       {kind === 'small' ? <CompactBookcase /> : (
         <ModelErrorBoundary fallback={<PlaceholderBookcase kind={kind} />}>
           <Suspense fallback={<PlaceholderBookcase kind={kind} />}>
-            <LoadedBookcase />
+            <LoadedBookcase hasCandles={hasCandles} candleVariant={candleVariant} />
           </Suspense>
         </ModelErrorBoundary>
       )}

@@ -112,13 +112,10 @@ function CompactBookcase() {
   const scene = useBookcaseScene();
   const shelfMaterial = useMemo(() => {
     const source = scene.getObjectByName('Victorian_Bookcase_Tall');
-    let sourceMaterial: THREE.Material | null = null;
-    source?.traverse((object) => {
-      if (!sourceMaterial && object instanceof THREE.Mesh) {
-        const material = Array.isArray(object.material) ? object.material[0] : object.material;
-        sourceMaterial = material;
-      }
-    });
+    const sourceMesh = source?.getObjectByProperty('isMesh', true) as THREE.Mesh | undefined;
+    const sourceMaterial = sourceMesh
+      ? Array.isArray(sourceMesh.material) ? sourceMesh.material[0] : sourceMesh.material
+      : null;
     if (!sourceMaterial) return new THREE.MeshStandardMaterial({ color: '#49301f', roughness: 0.82 });
     return sourceMaterial.clone();
   }, [scene]);

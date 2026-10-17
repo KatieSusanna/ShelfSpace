@@ -186,11 +186,7 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
         dispose={null}
       />
       <mesh geometry={piece.geometry} material={material} scale={[book.thickness / piece.size.x, book.height / piece.size.y, book.depth / piece.size.z]}>
-<<<<<<< HEAD
-        {hovered && <group scale={[1.02, 1.02, 1.02]}>
-=======
         <group ref={highlight} visible={false} scale={[1.04, 1.03, 1.03]}>
->>>>>>> 2f112e96da979dd266ec28ed2c5005451a604215
           <lineSegments geometry={outlineGeometry}>
             <lineBasicMaterial color="#ffffff" transparent opacity={1} depthTest />
           </lineSegments>

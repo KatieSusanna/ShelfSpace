@@ -16,7 +16,7 @@ type BookcaseProps = {
 
 function useBookcaseScene() {
   return useLoader(FBXLoader, '/models/bookcase.fbx', (loader) => {
-    loader.setResourcePath('/models/textures/');
+    loader.setResourcePath('/models/bookcase/textures/');
     // The FBX embeds texture names with spaces; the ZIP stores the same names with underscores.
     const textureNameFixes: Record<string, string> = {
       'Victorian Bookcase Tall_BaseColor_sRGB.png': 'Victorian_Bookcase_Tall_BaseColor_sRGB.png',

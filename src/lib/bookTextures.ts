@@ -89,12 +89,12 @@ export function useLeatherMaterials(): LeatherMaterials {
     let normal: THREE.Texture | null = null;
     let roughness: THREE.Texture | null = null;
     const update = () => { if (alive) setMaps((previous) => ({ ...previous, color: color ?? neutralFallback, normal, roughness })); };
-    load('/models/textures/Leather033A_1K-JPG_Color.jpg', (source) => {
+    load('/models/sm-books/textures/Leather033A_1K-JPG_Color.jpg', (source) => {
       const neutral = toNeutralLeather(source);
       setTile(neutral); owned.push(neutral); color = neutral; source.dispose(); update();
     });
-    load('/models/textures/Leather033A_1K-JPG_NormalGL.jpg', (texture) => { normal = texture; update(); });
-    load('/models/textures/Leather033A_1K-JPG_Roughness.jpg', (texture) => { roughness = texture; update(); });
+    load('/models/sm-books/textures/Leather033A_1K-JPG_NormalGL.jpg', (texture) => { normal = texture; update(); });
+    load('/models/sm-books/textures/Leather033A_1K-JPG_Roughness.jpg', (texture) => { roughness = texture; update(); });
     const fallbackTimer = window.setTimeout(update, 2500);
     return () => { alive = false; window.clearTimeout(fallbackTimer); owned.forEach((texture) => texture.dispose()); };
     // `pages` is created for this component lifetime, so the loader effect runs once.

@@ -8,7 +8,6 @@ import { ScanBookButton } from '@/components/ui/scanBookButton';
 import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 import { useReviewStore } from '@/store/reviews';
 import { BookBarcodeScanner } from '@/components/ui/BookBarcodeScanner';
-import { BookReader } from '@/components/ui/BookReader';
 
 function PointerHint() {
   const [locked, setLocked] = useState(false);
@@ -23,12 +22,13 @@ function PointerHint() {
 function Crosshair() {
   const [locked, setLocked] = useState(false);
   const hoveringBook = useSelectionState((state) => state.hoveredId !== null);
+  const showingBook = useSelectionState((state) => state.heldBookId !== null || state.isTaking);
   useEffect(() => {
     const updateLock = () => setLocked(document.pointerLockElement !== null);
     document.addEventListener('pointerlockchange', updateLock);
     return () => document.removeEventListener('pointerlockchange', updateLock);
   }, []);
-  return locked ? <div className={`aim-crosshair${hoveringBook ? ' aim-crosshair--book' : ''}`} aria-hidden="true"><i /></div> : null;
+  return locked && !showingBook ? <div className={`aim-crosshair${hoveringBook ? ' aim-crosshair--book' : ''}`} aria-hidden="true"><i /></div> : null;
 }
 
 export default function Home() {
@@ -38,6 +38,8 @@ export default function Home() {
   const [scannedIsbn, setScannedIsbn] = useState<string | null>(null);
   const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
+  const heldBook = useSelectionState((state) => state.heldBookId !== null);
+  const bookIsActive = isTaking || heldBook || selectedBook !== null;
   const onBookSelected = useCallback((book: ShelfBook) => setSelectedBook(book), []);
   const openBookScanner = useCallback(() => {
     if (document.pointerLockElement) document.exitPointerLock();
@@ -75,13 +77,12 @@ export default function Home() {
         <Room onBookSelected={onBookSelected} />
         <Player />
       </Canvas>
-      <PointerHint />
+      {!bookIsActive && <PointerHint />}
       <Crosshair />
-      {isTaking && <div className="scene-dim" aria-hidden="true" />}
-      <div className="book-debug-hint">Press B to show book placement boxes</div>
-      <div className="library-status">Reviews saved: {savedCount}</div>
-      <ScanBookButton onClick={openBookScanner} />
-      {scannerOpen && (
+      {!bookIsActive && <div className="book-debug-hint">Press B to show book placement boxes</div>}
+      {!bookIsActive && <div className="library-status">Reviews saved: {savedCount}</div>}
+      {!bookIsActive && <ScanBookButton onClick={openBookScanner} />}
+      {!bookIsActive && scannerOpen && (
         <BookBarcodeScanner
           onISBN={(isbn) => {
             setScannedIsbn(isbn);
@@ -90,13 +91,11 @@ export default function Home() {
           onClose={() => setScannerOpen(false)}
         />
       )}
-      {scannedIsbn && (
+      {!bookIsActive && scannedIsbn && (
         <div className="library-status" style={{ top: 124 }}>
           Scanned ISBN: {scannedIsbn}
         </div>
       )}
-      {selectedBook && <BookReader book={selectedBook} onClose={closePanel} />}
-      {selectedBook && <div className="return-book-prompt">{returning ? 'Returning book to shelf…' : 'Right-click to return book to shelf'}</div>}
     </main>
   );
 }

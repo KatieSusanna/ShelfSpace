@@ -61,7 +61,7 @@ canvas { display: block; }
 .book-scanner-panel { position: relative; width: min(560px, 100%); padding: 30px; border: 1px solid #ae8e61; border-radius: 8px; background: #211b15; color: #f2e5cc; box-shadow: 0 20px 70px #000b; font-family: Georgia, serif; }
 .book-scanner-panel h1 { margin: 0; font-size: 30px; font-weight: 500; }
 .book-scanner-instructions { margin: 8px 0 18px; color: #cdbb9d; font: 13px/1.5 Arial, sans-serif; }
-.book-scanner-reader { width: 100%; min-height: 230px; overflow: hidden; border: 1px solid #766448; border-radius: 5px; background: #100e0b; }
+.book-scanner-reader { width: 100%; height: min(55vh, 420px); min-height: 230px; overflow: hidden; border: 1px solid #766448; border-radius: 5px; background: #100e0b; object-fit: cover; }
 .book-scanner-reader video { display: block; width: 100% !important; max-height: 55vh; object-fit: cover; }
 .book-scanner-reader img { max-width: 100%; }
 .book-scanner-reader canvas { max-width: 100%; }

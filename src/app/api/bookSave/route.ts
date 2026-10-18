@@ -12,10 +12,11 @@ type SavedBook = BookMetadata & { bookId: string };
 
 export async function GET(request: Request) {
   const bookId = new URL(request.url).searchParams.get('bookId');
-  if (!bookId) return NextResponse.json({ error: 'Missing bookId.' }, { status: 400 });
 
   try {
-    const saved = (await readSavedBooks()).find((book) => book.bookId === bookId);
+    const books = await readSavedBooks();
+    if (!bookId) return NextResponse.json(books.filter((book) => book.bookId));
+    const saved = books.find((book) => book.bookId === bookId);
     if (!saved) return NextResponse.json({ error: 'No saved scan for this book.' }, { status: 404 });
     const { bookId: _bookId, ...metadata } = saved;
     return NextResponse.json(metadata);

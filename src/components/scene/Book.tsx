@@ -259,14 +259,15 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   const scanned = useBookMetadata((state) => state.metadataByBookId[book.id]);
   const displayTitle = scanned?.title || book.title;
   const displayAuthor = scanned ? scanned.authors.join('; ') : book.author;
-  const label = useMemo(() => makeSpineLabel(displayTitle, displayAuthor), [displayAuthor, displayTitle]);
+  const hasScannedTitle = Boolean(scanned?.title.trim());
+  const label = useMemo(() => hasScannedTitle ? makeSpineLabel(displayTitle, displayAuthor) : null, [displayAuthor, displayTitle, hasScannedTitle]);
   const coverColour = material.color.getStyle();
-  const cover = useMemo(() => makeCoverLabel(displayTitle, coverColour), [coverColour, displayTitle]);
+  const cover = useMemo(() => hasScannedTitle ? makeCoverLabel(displayTitle, coverColour) : null, [coverColour, displayTitle, hasScannedTitle]);
   const hitGeometry = useMemo(() => new THREE.BoxGeometry(book.thickness, book.height, book.depth), [book.depth, book.height, book.thickness]);
-  const labelGeometry = useMemo(() => new THREE.PlaneGeometry(book.thickness * 0.82, book.height * 0.86), [book.height, book.thickness]);
-  const coverGeometry = useMemo(() => new THREE.PlaneGeometry(book.depth * 0.86, book.height * 0.9), [book.depth, book.height]);
-  const labelMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map: label, transparent: true, depthWrite: false, toneMapped: false }), [label]);
-  const coverMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map: cover, side: THREE.DoubleSide, toneMapped: false }), [cover]);
+  const labelGeometry = useMemo(() => hasScannedTitle ? new THREE.PlaneGeometry(book.thickness * 0.82, book.height * 0.86) : null, [book.height, book.thickness, hasScannedTitle]);
+  const coverGeometry = useMemo(() => hasScannedTitle ? new THREE.PlaneGeometry(book.depth * 0.86, book.height * 0.9) : null, [book.depth, book.height, hasScannedTitle]);
+  const labelMaterial = useMemo(() => label ? new THREE.MeshBasicMaterial({ map: label, transparent: true, depthWrite: false, toneMapped: false }) : null, [label]);
+  const coverMaterial = useMemo(() => cover ? new THREE.MeshBasicMaterial({ map: cover, side: THREE.DoubleSide, toneMapped: false }) : null, [cover]);
   // Keep the original shelf transform out of JSX: selection animations and camera
   // attachment are imperative, so a hover rerender must not snap the book back.
   useLayoutEffect(() => {
@@ -278,7 +279,10 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
     registerBook(book.id, group.current, hitMesh.current, highlight.current);
     return () => registerBook(book.id, null, null, null);
   }, [book.id]);
-  useEffect(() => () => { label.dispose(); cover.dispose(); labelGeometry.dispose(); coverGeometry.dispose(); hitGeometry.dispose(); labelMaterial.dispose(); coverMaterial.dispose(); }, [cover, coverGeometry, coverMaterial, hitGeometry, label, labelGeometry, labelMaterial]);
+  useEffect(() => () => { label?.dispose(); cover?.dispose(); }, [cover, label]);
+  useEffect(() => () => { labelGeometry?.dispose(); coverGeometry?.dispose(); }, [coverGeometry, labelGeometry]);
+  useEffect(() => () => { hitGeometry.dispose(); }, [hitGeometry]);
+  useEffect(() => () => { labelMaterial?.dispose(); coverMaterial?.dispose(); }, [coverMaterial, labelMaterial]);
   return (
     <group ref={group} userData={{ bookId: book.id }}>
       <mesh
@@ -296,8 +300,8 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
             <Outlines color="#ffffff" thickness={1.5} toneMapped={false} />
           </mesh>
         </group>
-        <mesh geometry={labelGeometry} material={labelMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
-        <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
+        {label && labelMaterial && labelGeometry && <mesh geometry={labelGeometry} material={labelMaterial} position={[0, 0, book.depth / 2 + 0.002]} />}
+        {cover && coverMaterial && coverGeometry && <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />}
       </SideTurnView>
       <mesh ref={hitMesh} geometry={hitGeometry} visible={false} />
     </group>

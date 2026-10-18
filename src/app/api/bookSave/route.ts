@@ -30,8 +30,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const bookId = String(body?.bookId ?? '').trim();
   const incoming = body?.metadata as Partial<BookMetadata> | undefined;
-  const isbn = String(incoming?.isbn ?? '').replace(/[^0-9Xx]/g, '');
-  if (!bookId || !incoming || !/^97[89]\d{10}$/.test(isbn) || !String(incoming.title ?? '').trim()) {
+  const rawIsbn = String(incoming?.isbn ?? '').replace(/[^0-9Xx]/g, '');
+  const isbn = rawIsbn || null;
+  if (!bookId || !incoming || (isbn && !/^97[89]\d{10}$/.test(isbn)) || !String(incoming.title ?? '').trim()) {
     return NextResponse.json({ error: 'Book ID and complete scanned book data are required.' }, { status: 400 });
   }
 
@@ -100,7 +101,7 @@ function rowToBook(row: string[], indexes: Record<string, number>): SavedBook {
   };
   return {
     bookId: get('book id'),
-    isbn: get('isbn'),
+    isbn: nullableString(get('isbn')),
     title: get('title'),
     authors: splitAuthors(get('authors', 'author')),
     publishDate: nullableString(get('publish date', 'publishdate')),
@@ -121,7 +122,7 @@ function serializeBooks(books: SavedBook[]) {
     book.coverUrl ?? '',
     book.description ?? '',
   ])];
-  return `${rows.map((row) => row.map(escapeCsv).join(',')).join('\n')}\n`;
+  return `${rows.map((row) => row.map((value) => escapeCsv(value ?? '')).join(',')).join('\n')}\n`;
 }
 
 function parseCsv(source: string): string[][] {

@@ -1,5 +1,5 @@
 export type BookMetadata = {
-  isbn: string;
+  isbn: string | null;
   title: string;
   authors: string[];
   publishDate: string | null;

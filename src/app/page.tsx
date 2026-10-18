@@ -4,8 +4,9 @@ import { Canvas } from '@react-three/fiber';
 import { useCallback, useEffect, useState } from 'react';
 import { Player } from '@/components/scene/Player';
 import { Room } from '@/components/scene/Room';
-import { ScanBookButton } from '@/components/ui/scanBookButton';
 import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
+import type { BookMetadata } from '@/lib/bookMetadata';
+import { useBookMetadata } from '@/store/bookMetadata';
 import { useReviewStore } from '@/store/reviews';
 import { BookBarcodeScanner } from '@/components/ui/BookBarcodeScanner';
 
@@ -25,22 +26,61 @@ export default function Home() {
   const [selectedBook, setSelectedBook] = useState<ShelfBook | null>(null);
   const [returning, setReturning] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [scannedIsbn, setScannedIsbn] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const setBookMetadata = useBookMetadata((state) => state.setBookMetadata);
+  const activeBookMetadata = useBookMetadata((state) => selectedBook ? state.metadataByBookId[selectedBook.id] ?? null : null);
   const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
-  const heldBook = useSelectionState((state) => state.heldBookId !== null);
+  const heldBookId = useSelectionState((state) => state.heldBookId);
+  const heldBook = heldBookId !== null;
   const openBook = useSelectionState((state) => state.openBookId !== null);
   const bookIsActive = isTaking || heldBook || selectedBook !== null;
-  const onBookSelected = useCallback((book: ShelfBook) => setSelectedBook(book), []);
+  const onBookSelected = useCallback((book: ShelfBook) => {
+    setSelectedBook(book);
+    setSaveError(null);
+    void fetch(`/api/bookSave?bookId=${encodeURIComponent(book.id)}`)
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return await response.json() as BookMetadata;
+      })
+      .then((metadata) => {
+        if (metadata && !useBookMetadata.getState().metadataByBookId[book.id]) setBookMetadata(book.id, metadata);
+      })
+      .catch((error) => console.error('Could not load saved book metadata:', error));
+  }, [setBookMetadata]);
   const openBookScanner = useCallback(() => {
+    if (!selectedBook) return;
     if (document.pointerLockElement) document.exitPointerLock();
-    setScannedIsbn(null);
     setScannerOpen(true);
-  }, []);
+  }, [selectedBook]);
+  const onBookScanned = useCallback((bookId: string, metadata: BookMetadata) => {
+    setBookMetadata(bookId, metadata);
+    setScannerOpen(false);
+  }, [setBookMetadata]);
   const closePanel = useCallback(() => {
     if (!selectedBook || returning) return;
+    const bookId = selectedBook.id;
     setReturning(true);
-    returnBook(selectedBook.id, () => { setSelectedBook(null); setReturning(false); });
+    returnBook(bookId, () => {
+      const metadata = useBookMetadata.getState().metadataByBookId[bookId];
+      if (metadata) {
+        void fetch('/api/bookSave', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookId, metadata }),
+        }).then(async (response) => {
+          if (!response.ok) {
+            const result = await response.json().catch(() => null);
+            throw new Error(result?.error ?? 'Could not save this book to books.csv.');
+          }
+        }).catch((error) => {
+          console.error('Could not save scanned book:', error);
+          setSaveError(error instanceof Error ? error.message : 'Could not save this book to books.csv.');
+        });
+      }
+      setSelectedBook(null);
+      setReturning(false);
+    });
   }, [returning, selectedBook]);
 
   useEffect(() => {
@@ -72,21 +112,18 @@ export default function Home() {
       {!scannerOpen && <div className={`return-book-prompt${heldBook && !isTaking ? ' return-book-prompt--right' : ''}`} aria-live="polite">
         {returning ? 'Returning book to the shelf…' : isTaking ? 'Picking up book…' : heldBook ? openBook ? 'Right-click to return the book to the shelf' : 'Right-click to return the book · Left-click to see inside' : 'Aim at a book and left-click to pick it up'}
       </div>}
-      {!bookIsActive && <div className="library-status">Reviews saved: {savedCount}</div>}
-      {!bookIsActive && <ScanBookButton onClick={openBookScanner} />}
-      {!bookIsActive && scannerOpen && (
+      {!bookIsActive && <div className="library-status">{saveError ?? `Reviews saved: ${savedCount}`}</div>}
+      {heldBook && selectedBook && !scannerOpen && (
+        <button className="scan-held-book-button" type="button" onClick={openBookScanner}>
+          {activeBookMetadata ? 'Rescan this book' : 'Scan this book'}
+        </button>
+      )}
+      {heldBook && selectedBook && scannerOpen && (
         <BookBarcodeScanner
-          onISBN={(isbn) => {
-            setScannedIsbn(isbn);
-            setScannerOpen(false);
-          }}
+          bookId={selectedBook.id}
+          onBookScanned={onBookScanned}
           onClose={() => setScannerOpen(false)}
         />
-      )}
-      {!bookIsActive && scannedIsbn && (
-        <div className="library-status" style={{ top: 124 }}>
-          Scanned ISBN: {scannedIsbn}
-        </div>
       )}
     </main>
   );

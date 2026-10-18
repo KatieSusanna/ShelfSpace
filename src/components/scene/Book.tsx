@@ -9,6 +9,7 @@ import { registerBook, type ShelfBook, useSelectionState } from '@/lib/useBookSe
 import { BookPageDetails } from '@/components/ui/BookPageDetails';
 import { BookPageReview } from '@/components/ui/BookPageReview';
 import { getBookPageDistanceFactor } from '@/lib/bookPageLayout';
+import { useBookMetadata } from '@/store/bookMetadata';
 
 type Piece = { geometry: THREE.BufferGeometry; size: THREE.Vector3 };
 type Props = { book: ShelfBook; pieces: Piece[]; materials: THREE.MeshStandardMaterial[] };
@@ -255,9 +256,12 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   const highlight = useRef<THREE.Group>(null);
   const isHighlighted = useSelectionState((state) => state.hoveredId === book.id);
   const isOpen = useSelectionState((state) => state.openBookId === book.id);
-  const label = useMemo(() => makeSpineLabel(book.title, book.author), [book.author, book.title]);
+  const scanned = useBookMetadata((state) => state.metadataByBookId[book.id]);
+  const displayTitle = scanned?.title || book.title;
+  const displayAuthor = scanned ? scanned.authors.join('; ') : book.author;
+  const label = useMemo(() => makeSpineLabel(displayTitle, displayAuthor), [displayAuthor, displayTitle]);
   const coverColour = material.color.getStyle();
-  const cover = useMemo(() => makeCoverLabel(book.title, coverColour), [book.title, coverColour]);
+  const cover = useMemo(() => makeCoverLabel(displayTitle, coverColour), [coverColour, displayTitle]);
   const hitGeometry = useMemo(() => new THREE.BoxGeometry(book.thickness, book.height, book.depth), [book.depth, book.height, book.thickness]);
   const labelGeometry = useMemo(() => new THREE.PlaneGeometry(book.thickness * 0.82, book.height * 0.86), [book.height, book.thickness]);
   const coverGeometry = useMemo(() => new THREE.PlaneGeometry(book.depth * 0.86, book.height * 0.9), [book.depth, book.height]);

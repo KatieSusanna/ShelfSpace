@@ -1,27 +1,36 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import type { BookMetadata } from '@/lib/bookMetadata';
 
 type BookBarcodeScannerProps = {
-  onISBN: (isbn: string) => void;
+  bookId: string;
+  onBookScanned: (bookId: string, metadata: BookMetadata) => void;
   onClose: () => void;
 };
 
 type CaptureMode = 'barcode' | 'cover';
 
-export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps) {
+export function BookBarcodeScanner({ bookId, onBookScanned, onClose }: BookBarcodeScannerProps) {
   const generatedId = useId().replace(/:/g, '');
   const readerId = `book-barcode-reader-${generatedId}`;
   const [mode, setMode] = useState<CaptureMode>('barcode');
   const scannerRef = useRef<import('html5-qrcode').Html5Qrcode | null>(null);
-  const onISBNRef = useRef(onISBN);
+  const onBookScannedRef = useRef(onBookScanned);
   const onCloseRef = useRef(onClose);
   const completedRef = useRef(false);
   const [message, setMessage] = useState('');
 
-  onISBNRef.current = onISBN;
+  onBookScannedRef.current = onBookScanned;
   onCloseRef.current = onClose;
-  console.log('open scanner clicked')
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!message) return;
@@ -38,8 +47,6 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
     if (mode !== 'barcode') return;
 
     let disposed = false;
-    let scanner: import('html5-qrcode').Html5Qrcode | null = null;
-
     const startScanner = async () => {
       try {
         const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
@@ -49,7 +56,6 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
           formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13],
           verbose: false,
         });
-        scanner = activeScanner;
         scannerRef.current = activeScanner;
 
         await activeScanner.start(
@@ -70,19 +76,25 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
             }
 
             completedRef.current = true;
-            void fetch('/api/bookRetreival', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ isbn }),
-            });
+            setMessage('ISBN found. Looking up book details…');
+            void (async () => {
+              try {
+                const response = await fetch('/api/bookRetreival', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ isbn }),
+                });
+                const result = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(result?.error ?? 'Book details could not be found.');
 
-            setMessage('ISBN found.');
-            void stopAndClear(activeScanner).then(() => {
-              scannerRef.current = null;
-              if (!disposed) onISBNRef.current(isbn);
-            });
+                await stopAndClear(activeScanner);
+                scannerRef.current = null;
+                if (!disposed) onBookScannedRef.current(bookId, result as BookMetadata);
+              } catch (error) {
+                completedRef.current = false;
+                if (!disposed) setMessage(error instanceof Error ? error.message : 'Book lookup failed. Try scanning again.');
+              }
+            })();
           },
           () => {
           
@@ -97,21 +109,15 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
       }
     };
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
     void startScanner();
 
     return () => {
       disposed = true;
-      window.removeEventListener('keydown', onKeyDown);
       const activeScanner = scannerRef.current;
       scannerRef.current = null;
       if (activeScanner) void stopAndClear(activeScanner);
     };
-  }, [mode, readerId]);
+  }, [bookId, mode, readerId]);
 
   return (
     <div className="book-scanner-backdrop" role="presentation">

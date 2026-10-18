@@ -28,7 +28,6 @@ export default function Home() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const setBookMetadata = useBookMetadata((state) => state.setBookMetadata);
-  const activeBookMetadata = useBookMetadata((state) => selectedBook ? state.metadataByBookId[selectedBook.id] ?? null : null);
   const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
   const heldBookId = useSelectionState((state) => state.heldBookId);
@@ -71,6 +70,18 @@ export default function Home() {
     if (document.pointerLockElement) document.exitPointerLock();
     setScannerOpen(true);
   }, [selectedBook]);
+  useEffect(() => {
+    if (!heldBook || !selectedBook || scannerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || event.key.toLowerCase() !== 'b') return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      event.preventDefault();
+      openBookScanner();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [heldBook, openBookScanner, scannerOpen, selectedBook]);
   const onBookScanned = useCallback((bookId: string, metadata: BookMetadata) => {
     setBookMetadata(bookId, metadata);
     setScannerOpen(false);
@@ -131,11 +142,6 @@ export default function Home() {
         {returning ? 'Returning book to the shelf…' : isTaking ? 'Picking up book…' : heldBook ? openBook ? 'Right-click to return the book to the shelf' : 'Right-click to return the book · Left-click to see inside' : 'Aim at a book and left-click to pick it up'}
       </div>}
       {!bookIsActive && <div className="library-status">{saveError ?? `Reviews saved: ${savedCount}`}</div>}
-      {heldBook && selectedBook && !scannerOpen && (
-        <button className="scan-held-book-button" type="button" onClick={openBookScanner}>
-          {activeBookMetadata ? 'Rescan this book' : 'Scan this book'}
-        </button>
-      )}
       {heldBook && selectedBook && scannerOpen && (
         <BookBarcodeScanner
           bookId={selectedBook.id}

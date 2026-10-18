@@ -12,6 +12,10 @@ canvas { display: block; }
 .return-book-prompt--right { right: 18px; left: auto; }
 .scan-held-book-button { position: fixed; z-index: 7; top: 18px; right: 18px; padding: 11px 16px; border: 1px solid #ae8e61; border-radius: 6px; background: linear-gradient(145deg, #30251aeb, #211b15f2); color: #f2e5cc; box-shadow: 0 8px 28px #0008; font: 14px Georgia, serif; cursor: pointer; }
 .scan-held-book-button:hover { border-color: #d1ae75; background: #3a2c1e; }
+.scan-book-hint { padding: 7px 11px; border: 1px solid #ae8e61; border-radius: 5px; background: #211b15ed; color: #f2e5cc; box-shadow: 0 5px 18px #0009; white-space: nowrap; font: 12px Arial, sans-serif; animation: scan-book-hint-pulse 1.8s ease-in-out infinite; }
+.scan-book-hint kbd { margin: 0 2px; padding: 2px 6px; border: 1px solid #d1ae75; border-radius: 3px; background: #3a2c1e; color: #f4d49a; font: bold 12px Arial, sans-serif; }
+@keyframes scan-book-hint-pulse { 0%, 100% { transform: scale(1); box-shadow: 0 5px 18px #0009, 0 0 0 0 #d1ae7540; } 50% { transform: scale(1.045); box-shadow: 0 7px 22px #000b, 0 0 0 5px #d1ae7500; } }
+@media (prefers-reduced-motion: reduce) { .scan-book-hint { animation: none; } }
 .book-page-review { position: relative; box-sizing: border-box; width: var(--book-page-width); height: var(--book-page-height); padding: 20px 20px 28px 32px; color: #383026; font-family: Georgia, serif; pointer-events: auto; }
 .book-page-details { position: relative; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: var(--book-page-width); height: var(--book-page-height); padding: 22px 22px 0; overflow: hidden; color: #383026; font: 11px/1.5 Georgia, serif; text-align: left; pointer-events: none; }
 .book-page-details p { margin: 0; overflow-wrap: anywhere; transform: translate(-8px, -8px); }

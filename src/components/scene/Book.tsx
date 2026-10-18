@@ -228,6 +228,7 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   const highlight = useRef<THREE.Group>(null);
   const isHighlighted = useSelectionState((state) => state.hoveredId === book.id);
   const isOpen = useSelectionState((state) => state.openBookId === book.id);
+  const isHeld = useSelectionState((state) => state.heldBookId === book.id);
   const scanned = useBookMetadata((state) => state.metadataByBookId[book.id]);
   const hasScannedTitle = Boolean(scanned?.title.trim());
   const spineLabel = useMemo(
@@ -279,6 +280,11 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
           <mesh geometry={spineGeometry} material={spineMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
         )}
       </SideTurnView>
+      {isHeld && (
+        <Html position={[0, book.height * 0.72, 0]} center pointerEvents="none" zIndexRange={[9, 9]}>
+          <div className="scan-book-hint">Press <kbd>B</kbd> to add a new book to my library</div>
+        </Html>
+      )}
       <mesh ref={hitMesh} geometry={hitGeometry} visible={false} />
     </group>
   );

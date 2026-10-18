@@ -7,7 +7,6 @@ import { Room } from '@/components/scene/Room';
 import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 import type { BookMetadata } from '@/lib/bookMetadata';
 import { useBookMetadata } from '@/store/bookMetadata';
-import { useReviewStore } from '@/store/reviews';
 import { BookBarcodeScanner } from '@/components/ui/BookBarcodeScanner';
 
 function Crosshair() {
@@ -28,12 +27,10 @@ export default function Home() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const setBookMetadata = useBookMetadata((state) => state.setBookMetadata);
-  const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
   const heldBookId = useSelectionState((state) => state.heldBookId);
   const heldBook = heldBookId !== null;
   const openBook = useSelectionState((state) => state.openBookId !== null);
-  const bookIsActive = isTaking || heldBook || selectedBook !== null;
 
   useEffect(() => {
     let cancelled = false;
@@ -141,7 +138,7 @@ export default function Home() {
       {!scannerOpen && <div className={`return-book-prompt${heldBook && !isTaking ? ' return-book-prompt--right' : ''}`} aria-live="polite">
         {returning ? 'Returning book to the shelf…' : isTaking ? 'Picking up book…' : heldBook ? openBook ? 'Right-click to return the book to the shelf' : 'Right-click to return the book · Left-click to see inside' : 'Aim at a book and left-click to pick it up'}
       </div>}
-      {!bookIsActive && <div className="library-status">{saveError ?? `Reviews saved: ${savedCount}`}</div>}
+      {saveError && <div className="library-status" role="alert">{saveError}</div>}
       {heldBook && selectedBook && scannerOpen && (
         <BookBarcodeScanner
           bookId={selectedBook.id}

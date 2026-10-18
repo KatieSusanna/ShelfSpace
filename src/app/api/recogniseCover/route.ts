@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server';
 import type { BookMetadata } from '@/lib/bookMetadata';
 
 export const runtime = 'nodejs';
+const GEMINI_TIMEOUT_MS = 120_000;
+const OPEN_LIBRARY_TIMEOUT_MS = 30_000;
+
+class UpstreamTimeoutError extends Error {}
+
+async function fetchWithTimeout(url: string | URL, init: RequestInit, service: string, timeoutMs: number) {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+      throw new UpstreamTimeoutError(`${service} took too long to respond. Please try again.`);
+    }
+    throw error;
+  }
+}
 
 type OpenLibraryBook = {
   title?: string;
@@ -101,12 +116,16 @@ export async function POST(request: Request) {
     return NextResponse.json(metadata);
   } catch (error) {
     console.error('Cover recognition failed:', error);
-    return NextResponse.json({ error: 'Could not recognise this cover. Please try again.' }, { status: 502 });
+    if (error instanceof UpstreamTimeoutError) {
+      return NextResponse.json({ error: error.message }, { status: 504 });
+    }
+    const message = error instanceof Error ? error.message : 'Could not recognise this cover. Please try again.';
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
 
 async function identifyCover(imageData: string, mimeType: string, apiKey: string): Promise<CoverIdentity> {
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
+  const response = await fetchWithTimeout('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -122,8 +141,9 @@ async function identifyCover(imageData: string, mimeType: string, apiKey: string
         ],
       }],
       generationConfig: {
-        temperature: 0,
+        maxOutputTokens: 256,
         responseMimeType: 'application/json',
+        thinkingConfig: { thinkingLevel: 'minimal' },
         responseSchema: {
           type: 'OBJECT',
           properties: {
@@ -136,11 +156,15 @@ async function identifyCover(imageData: string, mimeType: string, apiKey: string
       },
     }),
     cache: 'no-store',
-  });
+  }, 'Gemini', GEMINI_TIMEOUT_MS);
 
   if (!response.ok) {
     console.error('Gemini request failed:', response.status, await response.text());
-    throw new Error('Gemini could not process the image. Check the API key and try again.');
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Gemini rejected the API key or project access. Check the server GEMINI_API_KEY setting.');
+    }
+    if (response.status === 429) throw new Error('Gemini is rate-limited or the API quota is exhausted. Please try again later.');
+    throw new Error(`Gemini could not process the image (HTTP ${response.status}). Please try again.`);
   }
 
   const result = await response.json();
@@ -164,7 +188,7 @@ async function findOpenLibraryMatch(identity: CoverIdentity): Promise<OpenLibrar
   url.searchParams.set('fields', 'key,title,author_name,first_publish_year,number_of_pages_median,cover_i,isbn,first_sentence');
   url.searchParams.set('limit', '8');
 
-  const response = await fetch(url, { cache: 'no-store' });
+  const response = await fetchWithTimeout(url, { cache: 'no-store' }, 'Open Library', OPEN_LIBRARY_TIMEOUT_MS);
   if (!response.ok) throw new Error('Open Library search failed.');
   const result = await response.json();
   const docs = (result?.docs ?? []) as OpenLibrarySearchDoc[];
@@ -188,7 +212,7 @@ function normalise(value: string) {
 
 async function getOpenLibraryBook(isbn: string): Promise<OpenLibraryBook | null> {
   const url = `https://openlibrary.org/api/books?bibkeys=ISBN:${encodeURIComponent(isbn)}&format=json&jscmd=data`;
-  const response = await fetch(url, { cache: 'no-store' });
+  const response = await fetchWithTimeout(url, { cache: 'no-store' }, 'Open Library', OPEN_LIBRARY_TIMEOUT_MS);
   if (!response.ok) return null;
   const result = await response.json() as Record<string, OpenLibraryBook>;
   return result[`ISBN:${isbn}`] ?? null;
@@ -196,7 +220,7 @@ async function getOpenLibraryBook(isbn: string): Promise<OpenLibraryBook | null>
 
 async function getWorkDescription(workKey: string): Promise<string | null> {
   if (!/^\/works\/OL\d+W$/.test(workKey)) return null;
-  const response = await fetch(`https://openlibrary.org${workKey}.json`, { cache: 'no-store' });
+  const response = await fetchWithTimeout(`https://openlibrary.org${workKey}.json`, { cache: 'no-store' }, 'Open Library', OPEN_LIBRARY_TIMEOUT_MS);
   if (!response.ok) return null;
   const work = await response.json();
   const description = work?.description;

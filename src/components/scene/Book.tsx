@@ -23,19 +23,22 @@ const BOOK_PICK_MATERIAL = new THREE.MeshBasicMaterial({
 
 function makeSpineLabel(title: string, author: string) {
   const canvas = document.createElement('canvas');
-  canvas.width = 64; canvas.height = 256;
+  canvas.width = 128;
+  canvas.height = 512;
   const context = canvas.getContext('2d');
   if (context) {
-    // Keep the lettering horizontal across the spine; short wrapped lines fit its narrow width.
-    context.textAlign = 'center'; context.textBaseline = 'middle';
-    context.fillStyle = '#f1e7cf'; context.font = 'bold 12px Georgia';
-    context.shadowColor = 'rgba(20, 12, 7, 0.9)'; context.shadowBlur = 4;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = '#f1e7cf';
+    context.font = 'bold 24px Georgia';
+    context.shadowColor = 'rgba(20, 12, 7, 0.9)';
+    context.shadowBlur = 5;
     const words = title.split(/\s+/);
     const lines: string[] = [];
     let line = '';
     for (const word of words) {
       const candidate = line ? `${line} ${word}` : word;
-      if (line && context.measureText(candidate).width > 56) {
+      if (line && context.measureText(candidate).width > 112) {
         lines.push(line);
         line = word;
       } else {
@@ -43,43 +46,12 @@ function makeSpineLabel(title: string, author: string) {
       }
     }
     if (line) lines.push(line);
-    const lineHeight = 15;
-    const titleStart = canvas.height * 0.4 - ((lines.length - 1) * lineHeight) / 2;
-    lines.forEach((titleLine, index) => context.fillText(titleLine, canvas.width / 2, titleStart + index * lineHeight, 58));
-    context.fillStyle = '#e0d2b4'; context.font = '9px Georgia';
-    context.fillText(author, canvas.width / 2, canvas.height * 0.75, 58);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-function makeCoverLabel(title: string, leather: string) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 384;
-  const context = canvas.getContext('2d');
-  if (context) {
-    context.fillStyle = leather;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.strokeStyle = '#d6b777';
-    context.lineWidth = 4;
-    context.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
-    context.fillStyle = '#f2e5cc';
-    context.textAlign = 'center'; context.textBaseline = 'middle';
-    context.font = 'bold 23px Georgia';
-    context.shadowColor = 'rgba(20, 12, 7, 0.65)'; context.shadowBlur = 5;
-    const words = title.split(/\s+/);
-    const lines: string[] = [];
-    let line = '';
-    for (const word of words) {
-      const candidate = line ? `${line} ${word}` : word;
-      if (line && context.measureText(candidate).width > 215) { lines.push(line); line = word; }
-      else line = candidate;
-    }
-    if (line) lines.push(line);
-    const lineHeight = 29;
-    const start = canvas.height * 0.38 - ((lines.length - 1) * lineHeight) / 2;
-    lines.forEach((text, index) => context.fillText(text, canvas.width / 2, start + index * lineHeight, 220));
+    const lineHeight = 30;
+    const start = canvas.height * 0.4 - ((lines.length - 1) * lineHeight) / 2;
+    lines.forEach((text, index) => context.fillText(text, canvas.width / 2, start + index * lineHeight, 116));
+    context.fillStyle = '#e0d2b4';
+    context.font = '18px Georgia';
+    context.fillText(author, canvas.width / 2, canvas.height * 0.75, 116);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -257,16 +229,20 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   const isHighlighted = useSelectionState((state) => state.hoveredId === book.id);
   const isOpen = useSelectionState((state) => state.openBookId === book.id);
   const scanned = useBookMetadata((state) => state.metadataByBookId[book.id]);
-  const displayTitle = scanned?.title || book.title;
-  const displayAuthor = scanned ? scanned.authors.join('; ') : book.author;
-  const label = useMemo(() => makeSpineLabel(displayTitle, displayAuthor), [displayAuthor, displayTitle]);
-  const coverColour = material.color.getStyle();
-  const cover = useMemo(() => makeCoverLabel(displayTitle, coverColour), [coverColour, displayTitle]);
+  const hasScannedTitle = Boolean(scanned?.title.trim());
+  const spineLabel = useMemo(
+    () => hasScannedTitle ? makeSpineLabel(scanned!.title, scanned!.authors.join('; ')) : null,
+    [hasScannedTitle, scanned],
+  );
+  const spineGeometry = useMemo(
+    () => hasScannedTitle ? new THREE.PlaneGeometry(book.thickness * 0.82, book.height * 0.86) : null,
+    [book.height, book.thickness, hasScannedTitle],
+  );
+  const spineMaterial = useMemo(
+    () => spineLabel ? new THREE.MeshBasicMaterial({ map: spineLabel, transparent: true, depthWrite: false, toneMapped: false }) : null,
+    [spineLabel],
+  );
   const hitGeometry = useMemo(() => new THREE.BoxGeometry(book.thickness, book.height, book.depth), [book.depth, book.height, book.thickness]);
-  const labelGeometry = useMemo(() => new THREE.PlaneGeometry(book.thickness * 0.82, book.height * 0.86), [book.height, book.thickness]);
-  const coverGeometry = useMemo(() => new THREE.PlaneGeometry(book.depth * 0.86, book.height * 0.9), [book.depth, book.height]);
-  const labelMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map: label, transparent: true, depthWrite: false, toneMapped: false }), [label]);
-  const coverMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map: cover, side: THREE.DoubleSide, toneMapped: false }), [cover]);
   // Keep the original shelf transform out of JSX: selection animations and camera
   // attachment are imperative, so a hover rerender must not snap the book back.
   useLayoutEffect(() => {
@@ -278,7 +254,10 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
     registerBook(book.id, group.current, hitMesh.current, highlight.current);
     return () => registerBook(book.id, null, null, null);
   }, [book.id]);
-  useEffect(() => () => { label.dispose(); cover.dispose(); labelGeometry.dispose(); coverGeometry.dispose(); hitGeometry.dispose(); labelMaterial.dispose(); coverMaterial.dispose(); }, [cover, coverGeometry, coverMaterial, hitGeometry, label, labelGeometry, labelMaterial]);
+  useEffect(() => () => { spineLabel?.dispose(); }, [spineLabel]);
+  useEffect(() => () => { spineGeometry?.dispose(); }, [spineGeometry]);
+  useEffect(() => () => { spineMaterial?.dispose(); }, [spineMaterial]);
+  useEffect(() => () => { hitGeometry.dispose(); }, [hitGeometry]);
   return (
     <group ref={group} userData={{ bookId: book.id }}>
       <mesh
@@ -296,8 +275,9 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
             <Outlines color="#ffffff" thickness={1.5} toneMapped={false} />
           </mesh>
         </group>
-        <mesh geometry={labelGeometry} material={labelMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
-        <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
+        {spineLabel && spineMaterial && spineGeometry && (
+          <mesh geometry={spineGeometry} material={spineMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
+        )}
       </SideTurnView>
       <mesh ref={hitMesh} geometry={hitGeometry} visible={false} />
     </group>

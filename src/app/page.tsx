@@ -35,6 +35,24 @@ export default function Home() {
   const heldBook = heldBookId !== null;
   const openBook = useSelectionState((state) => state.openBookId !== null);
   const bookIsActive = isTaking || heldBook || selectedBook !== null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/bookSave')
+      .then(async (response) => response.ok ? await response.json() as (BookMetadata & { bookId: string })[] : [])
+      .then((savedBooks) => {
+        if (cancelled) return;
+        for (const saved of savedBooks) {
+          if (!useBookMetadata.getState().metadataByBookId[saved.bookId]) {
+            const { bookId, ...metadata } = saved;
+            setBookMetadata(bookId, metadata);
+          }
+        }
+      })
+      .catch((error) => console.error('Could not load saved book metadata:', error));
+    return () => { cancelled = true; };
+  }, [setBookMetadata]);
+
   const onBookSelected = useCallback((book: ShelfBook) => {
     setSelectedBook(book);
     setSaveError(null);

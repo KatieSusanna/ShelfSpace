@@ -335,7 +335,7 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
           <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
         )}
       </SideTurnView>
-      {isHeld && (
+      {isHeld && !scanned && (
         <Html position={[0, book.height * 0.72, 0]} center pointerEvents="none" zIndexRange={[9, 9]}>
           <div className="scan-book-hint">Press <kbd>B</kbd> to add a new book to my library</div>
         </Html>

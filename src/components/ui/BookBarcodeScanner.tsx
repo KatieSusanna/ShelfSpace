@@ -152,7 +152,7 @@ export function BookBarcodeScanner({ bookId, onBookScanned, onClose }: BookBarco
             <p className="book-scanner-message" aria-live="polite">{message}</p>
           </>
         ) : (
-          <CoverCapture />
+          <CoverCapture bookId={bookId} onBookScanned={onBookScannedRef.current} />
         )}
         <div className="book-scanner-actions">
           <button className="secondary-button" type="button" onClick={onClose}>Cancel</button>
@@ -162,10 +162,17 @@ export function BookBarcodeScanner({ bookId, onBookScanned, onClose }: BookBarco
   );
 }
 
-function CoverCapture() {
+function CoverCapture({
+  bookId,
+  onBookScanned,
+}: {
+  bookId: string;
+  onBookScanned: BookBarcodeScannerProps['onBookScanned'];
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [recognising, setRecognising] = useState(false);
   const [message, setMessage] = useState('Position the full front cover in view, then capture it.');
 
   useEffect(() => {
@@ -222,7 +229,28 @@ function CoverCapture() {
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     setCapturedImage(canvas.toDataURL('image/jpeg', 0.85));
-    setMessage('Cover captured. AI recognition will be connected here next.');
+    setMessage('Cover captured. Choose “Recognise book” to look it up.');
+  };
+
+  const recogniseCover = async () => {
+    if (!capturedImage || recognising) return;
+    setRecognising(true);
+    setMessage('Identifying the book and looking it up in Open Library…');
+
+    try {
+      const response = await fetch('/api/recogniseCover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: capturedImage }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error ?? 'Could not identify this book. Try another cover photo.');
+
+      onBookScanned(bookId, result as BookMetadata);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not identify this book. Try again.');
+      setRecognising(false);
+    }
   };
 
   return (
@@ -231,13 +259,16 @@ function CoverCapture() {
       <p className="book-scanner-instructions">Show the full front cover in good light. Keep it upright and fill most of the frame.</p>
       <video ref={videoRef} className="book-scanner-reader cover-camera" autoPlay muted playsInline />
       <div className="cover-capture-actions">
-        <button className="primary-button" type="button" onClick={captureCover}>Capture cover</button>
+        <button className="primary-button" type="button" onClick={captureCover} disabled={recognising}>Capture cover</button>
         {capturedImage && (
           <button className="secondary-button" type="button" onClick={() => {
             setCapturedImage(null);
             setMessage('Position the full front cover in view, then capture it.');
-          }}>Retake</button>
+          }} disabled={recognising}>Retake</button>
         )}
+        {capturedImage && <button className="primary-button" type="button" onClick={() => void recogniseCover()} disabled={recognising}>
+          {recognising ? 'Recognising…' : 'Recognise book'}
+        </button>}
       </div>
       {capturedImage && <img className="cover-capture-preview" src={capturedImage} alt="Captured book cover preview" />}
       <p className="book-scanner-message" aria-live="polite">{message}</p>

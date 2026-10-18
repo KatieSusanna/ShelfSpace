@@ -131,7 +131,7 @@ export function BookBarcodeScanner({ bookId, onBookScanned, onClose }: BookBarco
             aria-selected={mode === 'barcode'}
             onClick={() => setMode('barcode')}
           >
-            Barcode scanner
+            Scan barcode
           </button>
           <button
             className={`capture-mode-tab${mode === 'cover' ? ' active' : ''}`}
@@ -140,7 +140,7 @@ export function BookBarcodeScanner({ bookId, onBookScanned, onClose }: BookBarco
             aria-selected={mode === 'cover'}
             onClick={() => setMode('cover')}
           >
-            Cover recogniser
+            Use cover photo
           </button>
         </div>
         <p className="panel-eyebrow">Add a volume to the stacks</p>
@@ -173,7 +173,11 @@ function CoverCapture({
   const streamRef = useRef<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [recognising, setRecognising] = useState(false);
-  const [message, setMessage] = useState('Position the full front cover in view, then capture it.');
+  const [cameraReady, setCameraReady] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [error, setError] = useState('');
+  const captureTimerRef = useRef<number | null>(null);
+  const recognitionAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -195,10 +199,14 @@ function CoverCapture({
         }
 
         streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => undefined);
+          if (!disposed) setCameraReady(true);
+        }
       } catch {
         if (!disposed) {
-          setMessage('Could not start the camera. Check camera permission and use this page over HTTPS or localhost.');
+          setError('Could not start the camera. Check camera permission and use this page over HTTPS or localhost.');
         }
       }
     };
@@ -206,16 +214,18 @@ function CoverCapture({
     void startCamera();
     return () => {
       disposed = true;
+      if (captureTimerRef.current !== null) window.clearInterval(captureTimerRef.current);
+      recognitionAbortRef.current?.abort();
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
   }, []);
 
-  const captureCover = () => {
+  const captureCover = (): string | null => {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) {
-      setMessage('The camera is not ready yet. Try again in a moment.');
-      return;
+      setError('The camera is not ready yet. Try again in a moment.');
+      return null;
     }
 
     const canvas = document.createElement('canvas');
@@ -223,55 +233,89 @@ function CoverCapture({
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
     if (!context) {
-      setMessage('Could not capture the cover image.');
-      return;
+      setError('Could not capture the cover image. Please try again.');
+      return null;
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setCapturedImage(canvas.toDataURL('image/jpeg', 0.85));
-    setMessage('Cover captured. Choose “Recognise book” to look it up.');
+    const image = canvas.toDataURL('image/jpeg', 0.85);
+    setCapturedImage(image);
+    return image;
   };
 
-  const recogniseCover = async () => {
-    if (!capturedImage || recognising) return;
+  const recogniseCover = async (image = capturedImage) => {
+    if (!image || recognising) return;
     setRecognising(true);
-    setMessage('Identifying the book and looking it up in Open Library…');
+    setError('');
+    const controller = new AbortController();
+    recognitionAbortRef.current = controller;
 
     try {
       const response = await fetch('/api/recogniseCover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: capturedImage }),
+        body: JSON.stringify({ image }),
+        signal: controller.signal,
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error ?? 'Could not identify this book. Try another cover photo.');
 
       onBookScanned(bookId, result as BookMetadata);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not identify this book. Try again.');
+      if (controller.signal.aborted) return;
+      setError(error instanceof Error ? error.message : 'Could not identify this book. Try again.');
       setRecognising(false);
+    } finally {
+      if (recognitionAbortRef.current === controller) recognitionAbortRef.current = null;
     }
+  };
+
+  const retakeCover = () => {
+    recognitionAbortRef.current?.abort();
+    recognitionAbortRef.current = null;
+    setRecognising(false);
+    setCapturedImage(null);
+    setError('');
+  };
+
+  const startCapture = () => {
+    if (!cameraReady || recognising || countdown !== null) return;
+    setError('');
+    setCountdown(3);
+    captureTimerRef.current = window.setInterval(() => {
+      setCountdown((current) => {
+        if (current === null || current <= 1) {
+          if (captureTimerRef.current !== null) window.clearInterval(captureTimerRef.current);
+          captureTimerRef.current = null;
+          window.setTimeout(() => {
+            const image = captureCover();
+            if (image) void recogniseCover(image);
+          }, 0);
+          return null;
+        }
+        return current - 1;
+      });
+    }, 1000);
   };
 
   return (
     <div className="cover-capture">
-      <h1 id="book-scanner-title">Recognise a book cover</h1>
-      <p className="book-scanner-instructions">Show the full front cover in good light. Keep it upright and fill most of the frame.</p>
-      <video ref={videoRef} className="book-scanner-reader cover-camera" autoPlay muted playsInline />
+      <h1 id="book-scanner-title">Add a book from its cover</h1>
+      <p className="book-scanner-instructions">Fit the whole front cover inside the frame, then tap capture. You’ll have three seconds to line it up.</p>
+      <div className="cover-camera-frame">
+        <video ref={videoRef} className="book-scanner-reader cover-camera" autoPlay muted playsInline />
+        <span className="cover-frame-guide" aria-hidden="true" />
+        <span className="cover-camera-tip">Keep the full cover in view</span>
+        {countdown !== null && <div className="cover-countdown" aria-live="assertive">{countdown}</div>}
+      </div>
       <div className="cover-capture-actions">
-        <button className="primary-button" type="button" onClick={captureCover} disabled={recognising}>Capture cover</button>
-        {capturedImage && (
-          <button className="secondary-button" type="button" onClick={() => {
-            setCapturedImage(null);
-            setMessage('Position the full front cover in view, then capture it.');
-          }} disabled={recognising}>Retake</button>
-        )}
-        {capturedImage && <button className="primary-button" type="button" onClick={() => void recogniseCover()} disabled={recognising}>
-          {recognising ? 'Recognising…' : 'Recognise book'}
-        </button>}
+        <button className="primary-button" type="button" onClick={startCapture} disabled={!cameraReady || recognising || countdown !== null}>
+          {recognising ? <><span className="scanner-spinner" aria-hidden="true" /> Loading…</> : countdown !== null ? `Hold still… ${countdown}` : cameraReady ? 'Capture cover' : 'Starting camera…'}
+        </button>
+        {capturedImage && <button className="secondary-button" type="button" onClick={retakeCover}>Retake</button>}
       </div>
       {capturedImage && <img className="cover-capture-preview" src={capturedImage} alt="Captured book cover preview" />}
-      <p className="book-scanner-message" aria-live="polite">{message}</p>
+      {error && <p className="scanner-error" role="alert">{error}</p>}
     </div>
   );
 }

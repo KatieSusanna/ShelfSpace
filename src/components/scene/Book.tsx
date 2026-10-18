@@ -230,6 +230,8 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   const isOpen = useSelectionState((state) => state.openBookId === book.id);
   const isHeld = useSelectionState((state) => state.heldBookId === book.id);
   const scanned = useBookMetadata((state) => state.metadataByBookId[book.id]);
+  const shouldShowCover = isHeld && !isOpen && Boolean(scanned?.coverUrl);
+  const [coverTexture, setCoverTexture] = useState<THREE.Texture | null>(null);
   const hasScannedTitle = Boolean(scanned?.title.trim());
   const spineLabel = useMemo(
     () => hasScannedTitle ? makeSpineLabel(scanned!.title, scanned!.authors.join('; ')) : null,
@@ -243,7 +245,55 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
     () => spineLabel ? new THREE.MeshBasicMaterial({ map: spineLabel, transparent: true, depthWrite: false, toneMapped: false }) : null,
     [spineLabel],
   );
+  const coverGeometry = useMemo(() => new THREE.PlaneGeometry(book.depth * 0.96, book.height * 0.96), [book.depth, book.height]);
+  const coverMaterial = useMemo(
+    () => coverTexture ? new THREE.MeshBasicMaterial({ map: coverTexture, side: THREE.DoubleSide, toneMapped: false }) : null,
+    [coverTexture],
+  );
   const hitGeometry = useMemo(() => new THREE.BoxGeometry(book.thickness, book.height, book.depth), [book.depth, book.height, book.thickness]);
+  useEffect(() => {
+    const coverUrl = scanned?.coverUrl;
+    if (!shouldShowCover || !coverUrl) {
+      setCoverTexture(null);
+      return;
+    }
+
+    let active = true;
+    let loadedTexture: THREE.Texture | null = null;
+    const loader = new THREE.TextureLoader();
+    loadedTexture = loader.load(coverUrl, (texture) => {
+      if (!active) {
+        texture.dispose();
+        return;
+      }
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const image = texture.image as { width?: number; height?: number; naturalWidth?: number; naturalHeight?: number };
+      const imageWidth = image.naturalWidth ?? image.width ?? 0;
+      const imageHeight = image.naturalHeight ?? image.height ?? 0;
+      const imageAspect = imageHeight > 0 ? imageWidth / imageHeight : 0;
+      const bookFaceAspect = book.depth / book.height;
+      if (imageAspect > 0 && bookFaceAspect > 0) {
+        if (imageAspect > bookFaceAspect) {
+          const visibleWidth = bookFaceAspect / imageAspect;
+          texture.repeat.set(visibleWidth, 1);
+          texture.offset.set((1 - visibleWidth) / 2, 0);
+        } else {
+          const visibleHeight = imageAspect / bookFaceAspect;
+          texture.repeat.set(1, visibleHeight);
+          texture.offset.set(0, (1 - visibleHeight) / 2);
+        }
+      }
+      setCoverTexture(texture);
+    }, undefined, () => {
+      if (active) setCoverTexture(null);
+    });
+
+    return () => {
+      active = false;
+      loadedTexture?.dispose();
+      setCoverTexture((current) => current === loadedTexture ? null : current);
+    };
+  }, [book.depth, book.height, scanned?.coverUrl, shouldShowCover]);
   // Keep the original shelf transform out of JSX: selection animations and camera
   // attachment are imperative, so a hover rerender must not snap the book back.
   useLayoutEffect(() => {
@@ -258,6 +308,8 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
   useEffect(() => () => { spineLabel?.dispose(); }, [spineLabel]);
   useEffect(() => () => { spineGeometry?.dispose(); }, [spineGeometry]);
   useEffect(() => () => { spineMaterial?.dispose(); }, [spineMaterial]);
+  useEffect(() => () => { coverGeometry.dispose(); }, [coverGeometry]);
+  useEffect(() => () => { coverMaterial?.dispose(); }, [coverMaterial]);
   useEffect(() => () => { hitGeometry.dispose(); }, [hitGeometry]);
   return (
     <group ref={group} userData={{ bookId: book.id }}>
@@ -278,6 +330,9 @@ function AssetBook({ book, piece, material }: { book: ShelfBook; piece: Piece; m
         </group>
         {spineLabel && spineMaterial && spineGeometry && (
           <mesh geometry={spineGeometry} material={spineMaterial} position={[0, 0, book.depth / 2 + 0.002]} />
+        )}
+        {shouldShowCover && coverTexture && coverMaterial && (
+          <mesh geometry={coverGeometry} material={coverMaterial} position={[book.thickness / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
         )}
       </SideTurnView>
       {isHeld && (

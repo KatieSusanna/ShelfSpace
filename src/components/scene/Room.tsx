@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { Fragment, Suspense, useEffect, useMemo, useState } from 'react';
+import { Fragment, Suspense, useEffect, useMemo } from 'react';
 import { DoubleSide, ExtrudeGeometry, NoColorSpace, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from 'three';
 import * as THREE from 'three';
 import { useTexture } from '@react-three/drei';
@@ -498,17 +498,6 @@ function WoodTrim() {
 }
 
 export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => void }) {
-  const [showBookSlots, setShowBookSlots] = useState(false);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'KeyB' || event.repeat) return;
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
-      setShowBookSlots((visible) => !visible);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
   return (
     <>
       <color attach="background" args={['#171411']} />
@@ -547,12 +536,6 @@ export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => 
       <Fireplace />
       <BookSelectionController books={SHELF_BOOKS} onSelect={onBookSelected} />
       <Suspense fallback={null}><BookShelf books={SHELF_BOOKS} /></Suspense>
-      {showBookSlots && SHELF_BOOKS.map((book) => (
-        <mesh key={`slot-${book.id}`} position={book.position} rotation={[0, book.rotationY, book.lean]}>
-          <boxGeometry args={[book.thickness, book.height, book.depth]} />
-          <meshBasicMaterial color="#56d9ff" wireframe transparent opacity={0.45} depthTest={false} />
-        </mesh>
-      ))}
     </>
   );
 }

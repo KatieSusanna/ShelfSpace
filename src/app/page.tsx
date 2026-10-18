@@ -9,16 +9,6 @@ import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSele
 import { useReviewStore } from '@/store/reviews';
 import { BookBarcodeScanner } from '@/components/ui/BookBarcodeScanner';
 
-function PointerHint() {
-  const [locked, setLocked] = useState(false);
-  useEffect(() => {
-    const updateLock = () => setLocked(document.pointerLockElement !== null);
-    document.addEventListener('pointerlockchange', updateLock);
-    return () => document.removeEventListener('pointerlockchange', updateLock);
-  }, []);
-  return locked ? null : <div className="pointer-hint">Click the room to aim. The circle in the middle highlights a book; left-click to pick it up.</div>;
-}
-
 function Crosshair() {
   const [locked, setLocked] = useState(false);
   const hoveringBook = useSelectionState((state) => state.hoveredId !== null);
@@ -39,6 +29,7 @@ export default function Home() {
   const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
   const heldBook = useSelectionState((state) => state.heldBookId !== null);
+  const openBook = useSelectionState((state) => state.openBookId !== null);
   const bookIsActive = isTaking || heldBook || selectedBook !== null;
   const onBookSelected = useCallback((book: ShelfBook) => setSelectedBook(book), []);
   const openBookScanner = useCallback(() => {
@@ -77,9 +68,10 @@ export default function Home() {
         <Room onBookSelected={onBookSelected} />
         <Player />
       </Canvas>
-      {!bookIsActive && <PointerHint />}
       <Crosshair />
-      {!bookIsActive && <div className="book-debug-hint">Press B to show book placement boxes</div>}
+      {!scannerOpen && <div className={`return-book-prompt${heldBook && !isTaking ? ' return-book-prompt--right' : ''}`} aria-live="polite">
+        {returning ? 'Returning book to the shelf…' : isTaking ? 'Picking up book…' : heldBook ? openBook ? 'Right-click to return the book to the shelf' : 'Right-click to return the book · Left-click to see inside' : 'Aim at a book and left-click to pick it up'}
+      </div>}
       {!bookIsActive && <div className="library-status">Reviews saved: {savedCount}</div>}
       {!bookIsActive && <ScanBookButton onClick={openBookScanner} />}
       {!bookIsActive && scannerOpen && (

@@ -10,6 +10,8 @@ canvas { display: block; }
 .scene-dim { position: fixed; inset: 0; background: #08070555; pointer-events: none; z-index: 2; }
 .return-book-prompt { position: fixed; z-index: 6; left: 18px; bottom: 22px; padding: 10px 14px; border: 1px solid #776344; border-radius: 4px; background: #211c17ed; color: #f1e2ca; font: 13px Arial, sans-serif; pointer-events: none; }
 .return-book-prompt--right { right: 18px; left: auto; }
+.scan-held-book-button { position: fixed; z-index: 7; top: 18px; right: 18px; padding: 11px 16px; border: 1px solid #ae8e61; border-radius: 6px; background: linear-gradient(145deg, #30251aeb, #211b15f2); color: #f2e5cc; box-shadow: 0 8px 28px #0008; font: 14px Georgia, serif; cursor: pointer; }
+.scan-held-book-button:hover { border-color: #d1ae75; background: #3a2c1e; }
 .book-page-review { position: relative; box-sizing: border-box; width: var(--book-page-width); height: var(--book-page-height); padding: 20px 20px 28px 32px; color: #383026; font-family: Georgia, serif; pointer-events: auto; }
 .book-page-details { position: relative; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: var(--book-page-width); height: var(--book-page-height); padding: 22px 22px 0; overflow: hidden; color: #383026; font: 11px/1.5 Georgia, serif; text-align: left; pointer-events: none; }
 .book-page-details p { margin: 0; overflow-wrap: anywhere; transform: translate(-8px, -8px); }

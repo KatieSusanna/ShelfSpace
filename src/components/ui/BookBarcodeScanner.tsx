@@ -1,24 +1,25 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import type { BookMetadata } from '@/lib/bookMetadata';
 
 type BookBarcodeScannerProps = {
-  onISBN: (isbn: string) => void;
+  bookId: string;
+  onBookScanned: (bookId: string, metadata: BookMetadata) => void;
   onClose: () => void;
 };
 
-export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps) {
+export function BookBarcodeScanner({ bookId, onBookScanned, onClose }: BookBarcodeScannerProps) {
   const generatedId = useId().replace(/:/g, '');
   const readerId = `book-barcode-reader-${generatedId}`;
   const scannerRef = useRef<import('html5-qrcode').Html5Qrcode | null>(null);
-  const onISBNRef = useRef(onISBN);
+  const onBookScannedRef = useRef(onBookScanned);
   const onCloseRef = useRef(onClose);
   const completedRef = useRef(false);
   const [message, setMessage] = useState('');
 
-  onISBNRef.current = onISBN;
+  onBookScannedRef.current = onBookScanned;
   onCloseRef.current = onClose;
-  console.log('open scanner clicked')
 
   useEffect(() => {
     if (!message) return;
@@ -65,19 +66,25 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
             }
 
             completedRef.current = true;
-            void fetch('/api/bookRetreival', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ isbn }),
-            });
+            setMessage('ISBN found. Looking up book details…');
+            void (async () => {
+              try {
+                const response = await fetch('/api/bookRetreival', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ isbn }),
+                });
+                const result = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(result?.error ?? 'Book details could not be found.');
 
-            setMessage('ISBN found.');
-            void stopAndClear(activeScanner).then(() => {
-              scannerRef.current = null;
-              if (!disposed) onISBNRef.current(isbn);
-            });
+                await stopAndClear(activeScanner);
+                scannerRef.current = null;
+                if (!disposed) onBookScannedRef.current(bookId, result as BookMetadata);
+              } catch (error) {
+                completedRef.current = false;
+                if (!disposed) setMessage(error instanceof Error ? error.message : 'Book lookup failed. Try scanning again.');
+              }
+            })();
           },
           () => {
           
@@ -106,7 +113,7 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
       scannerRef.current = null;
       if (activeScanner) void stopAndClear(activeScanner);
     };
-  }, [readerId]);
+  }, [bookId, readerId]);
 
   return (
     <div className="book-scanner-backdrop" role="presentation">
@@ -114,7 +121,7 @@ export function BookBarcodeScanner({ onISBN, onClose }: BookBarcodeScannerProps)
         <button className="review-close" type="button" onClick={onClose} aria-label="Close barcode scanner">×</button>
         <p className="panel-eyebrow">Add a volume to the stacks</p>
         <h1 id="book-scanner-title">Scan a book</h1>
-        <p className="book-scanner-instructions">Hold the barcode steady inside the frame.</p>
+        <p className="book-scanner-instructions">Scanning for the selected shelf book. Hold the barcode steady inside the frame.</p>
         <div id={readerId} className="book-scanner-reader" />
         <p className="book-scanner-message" aria-live="polite">{message}</p>
         <div className="book-scanner-actions">

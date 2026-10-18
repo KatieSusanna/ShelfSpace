@@ -8,8 +8,6 @@ import { ScanBookButton } from '@/components/ui/scanBookButton';
 import { returnBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
 import { useReviewStore } from '@/store/reviews';
 import { BookBarcodeScanner } from '@/components/ui/BookBarcodeScanner';
-import { BookPageReview } from '@/components/ui/BookPageReview';
-import { BookPageDetails } from '@/components/ui/BookPageDetails';
 
 function PointerHint() {
   const [locked, setLocked] = useState(false);
@@ -41,7 +39,6 @@ export default function Home() {
   const savedCount = useReviewStore((state) => Object.keys(state.reviews).length);
   const isTaking = useSelectionState((state) => state.isTaking);
   const heldBook = useSelectionState((state) => state.heldBookId !== null);
-  const openBookId = useSelectionState((state) => state.openBookId);
   const bookIsActive = isTaking || heldBook || selectedBook !== null;
   const onBookSelected = useCallback((book: ShelfBook) => setSelectedBook(book), []);
   const openBookScanner = useCallback(() => {
@@ -80,12 +77,6 @@ export default function Home() {
         <Room onBookSelected={onBookSelected} />
         <Player />
       </Canvas>
-      {selectedBook && openBookId === selectedBook.id && (
-        <>
-          <BookPageDetails book={selectedBook} />
-          <BookPageReview book={selectedBook} />
-        </>
-      )}
       {!bookIsActive && <PointerHint />}
       <Crosshair />
       {!bookIsActive && <div className="book-debug-hint">Press B to show book placement boxes</div>}

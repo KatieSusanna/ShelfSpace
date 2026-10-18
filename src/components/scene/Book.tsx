@@ -2,9 +2,13 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
-import { Outlines, useGLTF } from '@react-three/drei';
+import { Html, Outlines, useGLTF } from '@react-three/drei';
+import { useThree } from '@react-three/fiber';
 import { gsap } from 'gsap';
 import { registerBook, type ShelfBook, useSelectionState } from '@/lib/useBookSelection';
+import { BookPageDetails } from '@/components/ui/BookPageDetails';
+import { BookPageReview } from '@/components/ui/BookPageReview';
+import { getBookPageDistanceFactor } from '@/lib/bookPageLayout';
 
 type Piece = { geometry: THREE.BufferGeometry; size: THREE.Vector3 };
 type Props = { book: ShelfBook; pieces: Piece[]; materials: THREE.MeshStandardMaterial[] };
@@ -149,12 +153,14 @@ function makeNeutralTexture(source: THREE.Texture | null): THREE.CanvasTexture |
 }
 
 function WhitePageBlock({ book, bookMaterial }: { book: ShelfBook; bookMaterial: THREE.MeshStandardMaterial }) {
-  const pageWidth = book.depth * 1.3;
-  const pageThickness = book.thickness * 0.24;
-  const pageHeight = book.height * 1.2;
+  const viewportHeight = useThree((state) => state.size.height);
+  const pageDistanceFactor = getBookPageDistanceFactor(viewportHeight);
+  const pageWidth = book.depth;
+  const pageThickness = 0.026;
+  const pageHeight = 0.3;
   const backingGeometry = useMemo(() => new THREE.BoxGeometry(pageWidth * 1.88, pageHeight, pageThickness * 1.5), [pageHeight, pageThickness, pageWidth]);
   const pageGeometry = useMemo(() => new THREE.BoxGeometry(pageWidth, pageHeight, pageThickness), [pageHeight, pageThickness, pageWidth]);
-  const borderWidth = Math.min(book.depth, book.height) * 0.035;
+  const borderWidth = Math.min(pageWidth, pageHeight) * 0.035;
   const middleLineGeometry = useMemo(() => new THREE.BoxGeometry(borderWidth * 0.6, pageHeight * 1.045, pageThickness * 0.32), [borderWidth, pageHeight, pageThickness]);
   const leatherGrain = useMemo(() => {
     const canvas = document.createElement('canvas');
@@ -208,6 +214,12 @@ function WhitePageBlock({ book, bookMaterial }: { book: ShelfBook; bookMaterial:
       <group position={[0, 0, pageThickness * 0.42]} renderOrder={1000000}>
         <mesh geometry={middleLineGeometry} material={middleLineMaterial} position={[0, -pageHeight * 0.01, 0]} renderOrder={1000000} frustumCulled={false} />
       </group>
+      <Html transform distanceFactor={pageDistanceFactor} position={[pageWidth * 0.44, 0, pageThickness * 0.65]} rotation={[0, Math.PI, 0]} pointerEvents="auto" zIndexRange={[8, 8]}>
+        <BookPageDetails book={book} />
+      </Html>
+      <Html transform distanceFactor={pageDistanceFactor} position={[-pageWidth * 0.44, 0, pageThickness * 0.65]} rotation={[0, Math.PI, 0]} pointerEvents="auto" zIndexRange={[8, 8]}>
+        <BookPageReview book={book} />
+      </Html>
     </group>
   );
 }

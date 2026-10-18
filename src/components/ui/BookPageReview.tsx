@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ShelfBook } from '@/lib/useBookSelection';
 import { useReviewStore } from '@/store/reviews';
+import { getBookPageWidthStyle } from '@/lib/bookPageLayout';
 
 export function BookPageReview({ book }: { book: ShelfBook }) {
   const [pagesReady, setPagesReady] = useState(false);
@@ -18,7 +19,7 @@ export function BookPageReview({ book }: { book: ShelfBook }) {
 
   useEffect(() => {
     setPagesReady(false);
-    const timer = window.setTimeout(() => setPagesReady(true), 1450);
+    const timer = window.setTimeout(() => setPagesReady(true), 350);
     return () => window.clearTimeout(timer);
   }, [book.id]);
 
@@ -34,7 +35,7 @@ export function BookPageReview({ book }: { book: ShelfBook }) {
   if (!pagesReady) return null;
 
   return (
-    <section className="book-page-review" aria-label={`Rate and review ${book.title}`}>
+    <section className="book-page-review" style={getBookPageWidthStyle(book)} aria-label={`Rate and review ${book.title}`}>
       <label className="book-page-review-title">Rating</label>
       <div className="book-page-stars" role="radiogroup" aria-label="Choose a rating out of five stars">
         {[1, 2, 3, 4, 5].map((star) => (

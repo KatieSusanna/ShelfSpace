@@ -125,13 +125,6 @@ function EastWindow() {
           <meshStandardMaterial color={WALL_BASE_COLOR} roughness={0.94} />
         </mesh>
       ))}
-      <WindowArchCap
-        position={[wallX + ROOM.wallThickness / 2, bottom, centerZ]}
-        rotation={[0, -Math.PI / 2, 0]}
-        width={width}
-        height={height}
-        color={WALL_BASE_COLOR}
-      />
       <Suspense fallback={null}>
         <GothicWindow6 position={[wallX - 0.04, bottom, centerZ]} rotation={[0, -Math.PI / 2, 0]} width={width} height={height} />
       </Suspense>
@@ -144,13 +137,13 @@ function WindowArchCap({
   rotation = [0, 0, 0],
   width,
   height,
-  color,
+  material,
 }: {
   position: [number, number, number];
   rotation?: [number, number, number];
   width: number;
   height: number;
-  color: string;
+  material: THREE.Material;
 }) {
   const geometry = useMemo(() => {
     const shape = new Shape();
@@ -172,11 +165,10 @@ function WindowArchCap({
       position={position}
       rotation={rotation}
       geometry={geometry}
+      material={material}
       castShadow
       receiveShadow
-    >
-      <meshStandardMaterial color={color} roughness={0.92} side={DoubleSide} />
-    </mesh>
+    />
   );
 }
 
@@ -209,12 +201,6 @@ function FireplaceWall() {
             <boxGeometry args={[width, ROOM.height - bottom - height, ROOM.wallThickness]} />
             {material}
           </mesh>
-          <WindowArchCap
-            position={[center, bottom, wallZ - ROOM.wallThickness / 2]}
-            width={width}
-            height={height}
-            color={WALL_BASE_COLOR}
-          />
           <Suspense fallback={null}>
             <GothicWindow6 position={[center, bottom, wallZ + ROOM.wallThickness / 2 + 0.015]} width={width} height={height} />
           </Suspense>
@@ -363,6 +349,10 @@ function WallFinish() {
   ];
   const doorSideWidth = (ROOM.width - ROOM.doorWidth) / 2;
   const doorSideX = ROOM.doorWidth / 2 + doorSideWidth / 2;
+  const eastWallX = ROOM.width / 2;
+  const eastExteriorX = eastWallX + ROOM.wallThickness / 2;
+  const northWallZ = -ROOM.depth / 2;
+  const northExteriorZ = northWallZ - ROOM.wallThickness / 2;
 
   const faces: WallFaceDefinition[] = [
     { key: 'west', width: ROOM.depth, height: ROOM.height, position: [westX, ROOM.height / 2, 0], rotation: [0, Math.PI / 2, 0] },
@@ -381,6 +371,22 @@ function WallFinish() {
   return (
     <group>
       {faces.map((face) => <WallFace key={face.key} definition={face} material={material} />)}
+      <WindowArchCap
+        position={[eastExteriorX, ROOM.windowBottom, ROOM.windowCenterZ]}
+        rotation={[0, -Math.PI / 2, 0]}
+        width={ROOM.windowWidth}
+        height={ROOM.windowHeight}
+        material={material}
+      />
+      {FIREPLACE_WINDOWS.centersX.map((center) => (
+        <WindowArchCap
+          key={`north-window-arch-cap-${center}`}
+          position={[center, FIREPLACE_WINDOWS.bottom, northExteriorZ]}
+          width={FIREPLACE_WINDOWS.width}
+          height={FIREPLACE_WINDOWS.height}
+          material={material}
+        />
+      ))}
     </group>
   );
 }

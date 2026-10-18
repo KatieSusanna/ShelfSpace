@@ -11,6 +11,7 @@ export type ShelfBook = {
   id: string;
   title: string;
   author: string;
+  description: string;
   assetPiece: number;
   position: [number, number, number];
   rotationY: number;

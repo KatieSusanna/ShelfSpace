@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 
-import { Fragment, Suspense, useEffect, useMemo, useState } from 'react';
+import { Fragment, Suspense, useEffect, useMemo } from 'react';
 import { DoubleSide, ExtrudeGeometry, NoColorSpace, RepeatWrapping, Shape, SRGBColorSpace, Vector2 } from 'three';
+import * as THREE from 'three';
 import { useTexture } from '@react-three/drei';
 import { BOOKCASES, BOOKCASE_CANDLE_INDICES, FIREPLACE_WINDOWS, ROOM, WINDOW_SEAT } from '@/config/layout';
 import { Bookcase } from '@/components/Bookcase';
@@ -16,6 +17,8 @@ import { Beanbags } from './Beanbags';
 import { Carpet } from './Carpet';
 import { GothicWindow6 } from './GothicWindow6';
 import { CandleTables } from './CandleTables';
+
+const WALL_BASE_COLOR = '#73543a';
 
 function WoodPlankMaterial({ width, height }: { width: number; height: number }) {
   const [baseColorSource, normalSource, packedSource] = useTexture([
@@ -62,12 +65,12 @@ function Doorway() {
       {[-sideX, sideX].map((x) => (
         <mesh key={x} position={[x, ROOM.height / 2, ROOM.depth / 2]}>
           <boxGeometry args={[sideWidth, ROOM.height, ROOM.wallThickness]} />
-          <meshStandardMaterial color="#33291f" roughness={0.92} />
+          <meshStandardMaterial color={WALL_BASE_COLOR} roughness={0.94} />
         </mesh>
       ))}
       <mesh position={[0, (ROOM.height + ROOM.doorHeight) / 2, ROOM.depth / 2]}>
         <boxGeometry args={[ROOM.doorWidth, ROOM.height - ROOM.doorHeight, ROOM.wallThickness]} />
-        <meshStandardMaterial color="#33291f" roughness={0.92} />
+        <meshStandardMaterial color={WALL_BASE_COLOR} roughness={0.94} />
       </mesh>
       <mesh position={[0, ROOM.doorHeight / 2, z]}>
         <boxGeometry args={[ROOM.doorWidth - 0.12, ROOM.doorHeight - 0.08, 0.08]} />
@@ -110,16 +113,16 @@ function EastWindow() {
     <>
       <mesh position={[wallX, bottom / 2, 0]}>
         <boxGeometry args={[ROOM.wallThickness, bottom, ROOM.depth]} />
-        <meshStandardMaterial color="#3c3025" roughness={0.92} />
+        <meshStandardMaterial color={WALL_BASE_COLOR} roughness={0.94} />
       </mesh>
       <mesh position={[wallX, (ROOM.height + top) / 2, 0]}>
         <boxGeometry args={[ROOM.wallThickness, ROOM.height - top, ROOM.depth]} />
-        <meshStandardMaterial color="#3c3025" roughness={0.92} />
+        <meshStandardMaterial color={WALL_BASE_COLOR} roughness={0.94} />
       </mesh>
       {sideSegments.map(({ depth, z }) => (
         <mesh key={z} position={[wallX, (bottom + top) / 2, z]}>
           <boxGeometry args={[ROOM.wallThickness, height, depth]} />
-          <meshStandardMaterial color="#3c3025" roughness={0.92} />
+          <meshStandardMaterial color={WALL_BASE_COLOR} roughness={0.94} />
         </mesh>
       ))}
       <WindowArchCap
@@ -127,7 +130,7 @@ function EastWindow() {
         rotation={[0, -Math.PI / 2, 0]}
         width={width}
         height={height}
-        color="#3c3025"
+        color={WALL_BASE_COLOR}
       />
       <Suspense fallback={null}>
         <GothicWindow6 position={[wallX - 0.04, bottom, centerZ]} rotation={[0, -Math.PI / 2, 0]} width={width} height={height} />
@@ -187,7 +190,7 @@ function FireplaceWall() {
     [rightEdges[0], leftEdges[1]],
     [rightEdges[1], ROOM.width / 2],
   ];
-  const material = <meshStandardMaterial color="#33291f" roughness={0.92} />;
+  const material = <meshStandardMaterial color={WALL_BASE_COLOR} roughness={0.94} />;
   return (
     <>
       {spans.map(([start, end], index) => (
@@ -210,7 +213,7 @@ function FireplaceWall() {
             position={[center, bottom, wallZ - ROOM.wallThickness / 2]}
             width={width}
             height={height}
-            color="#33291f"
+            color={WALL_BASE_COLOR}
           />
           <Suspense fallback={null}>
             <GothicWindow6 position={[center, bottom, wallZ + ROOM.wallThickness / 2 + 0.015]} width={width} height={height} />
@@ -274,18 +277,227 @@ function TexturedFloor() {
   );
 }
 
-export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => void }) {
-  const [showBookSlots, setShowBookSlots] = useState(false);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'KeyB' || event.repeat) return;
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
-      setShowBookSlots((visible) => !visible);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+type WallFaceDefinition = {
+  key: string;
+  width: number;
+  height: number;
+  position: [number, number, number];
+  rotation: [number, number, number];
+};
 
+function WallFace({ definition, material }: { definition: WallFaceDefinition; material: THREE.Material }) {
+  const geometry = useMemo(() => {
+    const plane = new THREE.PlaneGeometry(definition.width, definition.height);
+    const uv = plane.getAttribute('uv');
+    for (let index = 0; index < uv.count; index += 1) {
+      // The square brick tile repeats once per metre in both wall directions.
+      uv.setXY(index, uv.getX(index) * definition.width, uv.getY(index) * definition.height);
+    }
+    uv.needsUpdate = true;
+    plane.setAttribute('uv2', uv.clone());
+    return plane;
+  }, [definition.height, definition.width]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  return <mesh geometry={geometry} material={material} position={definition.position} rotation={definition.rotation} receiveShadow />;
+}
+
+function WallFinish() {
+  const [colorSource, normalSource, roughnessSource, aoSource] = useTexture([
+    '/textures/room-walls/grey-bricks/Bricks063_1K-JPG_Color.jpg',
+    '/textures/room-walls/grey-bricks/Bricks063_1K-JPG_NormalGL.jpg',
+    '/textures/room-walls/grey-bricks/Bricks063_1K-JPG_Roughness.jpg',
+    '/textures/room-walls/grey-bricks/Bricks063_1K-JPG_AmbientOcclusion.jpg',
+  ]);
+  const [colorMap, normalMap, roughnessMap, aoMap] = useMemo(() => {
+    const maps = [colorSource.clone(), normalSource.clone(), roughnessSource.clone(), aoSource.clone()];
+    for (const texture of maps) {
+      texture.wrapS = RepeatWrapping;
+      texture.wrapT = RepeatWrapping;
+      texture.needsUpdate = true;
+    }
+    maps[0].colorSpace = SRGBColorSpace;
+    maps[1].colorSpace = NoColorSpace;
+    maps[2].colorSpace = NoColorSpace;
+    maps[3].colorSpace = NoColorSpace;
+    return maps;
+  }, [aoSource, colorSource, normalSource, roughnessSource]);
+  const material = useMemo(() => new THREE.MeshStandardMaterial({
+    map: colorMap,
+    normalMap,
+    roughnessMap,
+    aoMap,
+    aoMapIntensity: 0.7,
+    roughness: 0.94,
+    metalness: 0,
+    normalScale: new Vector2(0.2, 0.2),
+    side: DoubleSide,
+  }), [aoMap, colorMap, normalMap, roughnessMap]);
+  useEffect(() => () => {
+    material.dispose();
+    colorMap.dispose();
+    normalMap.dispose();
+    roughnessMap.dispose();
+    aoMap.dispose();
+  }, [aoMap, colorMap, material, normalMap, roughnessMap]);
+
+  const westX = -ROOM.width / 2 + ROOM.wallThickness / 2 + 0.004;
+  const eastX = ROOM.width / 2 - ROOM.wallThickness / 2 - 0.004;
+  const northZ = -ROOM.depth / 2 + ROOM.wallThickness / 2 + 0.004;
+  const southZ = ROOM.depth / 2 - ROOM.wallThickness / 2 - 0.004;
+  const eastStart = ROOM.windowCenterZ - ROOM.windowWidth / 2;
+  const eastEnd = ROOM.windowCenterZ + ROOM.windowWidth / 2;
+  const eastTop = ROOM.windowBottom + ROOM.windowHeight;
+  const eastSides = [
+    { width: eastStart + ROOM.depth / 2, z: (-ROOM.depth / 2 + eastStart) / 2 },
+    { width: ROOM.depth / 2 - eastEnd, z: (eastEnd + ROOM.depth / 2) / 2 },
+  ];
+  const windowWidth = FIREPLACE_WINDOWS.width;
+  const northTop = FIREPLACE_WINDOWS.bottom + FIREPLACE_WINDOWS.height;
+  const leftEdges = FIREPLACE_WINDOWS.centersX.map((center) => center - windowWidth / 2);
+  const rightEdges = FIREPLACE_WINDOWS.centersX.map((center) => center + windowWidth / 2);
+  const northSpans = [
+    [-ROOM.width / 2, leftEdges[0]],
+    [rightEdges[0], leftEdges[1]],
+    [rightEdges[1], ROOM.width / 2],
+  ];
+  const doorSideWidth = (ROOM.width - ROOM.doorWidth) / 2;
+  const doorSideX = ROOM.doorWidth / 2 + doorSideWidth / 2;
+
+  const faces: WallFaceDefinition[] = [
+    { key: 'west', width: ROOM.depth, height: ROOM.height, position: [westX, ROOM.height / 2, 0], rotation: [0, Math.PI / 2, 0] },
+    { key: 'east-bottom', width: ROOM.depth, height: ROOM.windowBottom, position: [eastX, ROOM.windowBottom / 2, 0], rotation: [0, -Math.PI / 2, 0] },
+    { key: 'east-top', width: ROOM.depth, height: ROOM.height - eastTop, position: [eastX, (ROOM.height + eastTop) / 2, 0], rotation: [0, -Math.PI / 2, 0] },
+    ...eastSides.map(({ width, z }, index) => ({ key: `east-side-${index}`, width, height: ROOM.windowHeight, position: [eastX, (ROOM.windowBottom + eastTop) / 2, z] as [number, number, number], rotation: [0, -Math.PI / 2, 0] as [number, number, number] })),
+    ...northSpans.map(([start, end], index) => ({ key: `north-span-${index}`, width: end - start, height: ROOM.height, position: [(start + end) / 2, ROOM.height / 2, northZ] as [number, number, number], rotation: [0, 0, 0] as [number, number, number] })),
+    ...FIREPLACE_WINDOWS.centersX.flatMap((center, index) => [
+      { key: `north-window-bottom-${index}`, width: windowWidth, height: FIREPLACE_WINDOWS.bottom, position: [center, FIREPLACE_WINDOWS.bottom / 2, northZ] as [number, number, number], rotation: [0, 0, 0] as [number, number, number] },
+      { key: `north-window-top-${index}`, width: windowWidth, height: ROOM.height - northTop, position: [center, (ROOM.height + northTop) / 2, northZ] as [number, number, number], rotation: [0, 0, 0] as [number, number, number] },
+    ]),
+    ...[-1, 1].map((side) => ({ key: `south-side-${side}`, width: doorSideWidth, height: ROOM.height, position: [side * doorSideX, ROOM.height / 2, southZ] as [number, number, number], rotation: [0, Math.PI, 0] as [number, number, number] })),
+    { key: 'south-header', width: ROOM.doorWidth, height: ROOM.height - ROOM.doorHeight, position: [0, (ROOM.height + ROOM.doorHeight) / 2, southZ], rotation: [0, Math.PI, 0] },
+  ];
+
+  return (
+    <group>
+      {faces.map((face) => <WallFace key={face.key} definition={face} material={material} />)}
+    </group>
+  );
+}
+
+const SKIRTING_HEIGHT = 0.305;
+const SKIRTING_DEPTH = 0.12;
+const WOOD_TEXTURE_TILE_LENGTH = 2;
+
+function WoodTrim() {
+  const [colorSource, normalSource, packedSource] = useTexture([
+    '/textures/wooden-planks/T_vjisagn_2K_B.png',
+    '/textures/wooden-planks/T_vjisagn_2K_N.png',
+    '/textures/wooden-planks/T_vjisagn_2K_ORM.png',
+  ]);
+  const [colorMap, normalMap, packedMap] = useMemo(() => {
+    const maps = [colorSource.clone(), normalSource.clone(), packedSource.clone()];
+    for (const map of maps) {
+      map.wrapS = RepeatWrapping;
+      map.wrapT = RepeatWrapping;
+      map.needsUpdate = true;
+    }
+    maps[0].colorSpace = SRGBColorSpace;
+    maps[1].colorSpace = NoColorSpace;
+    maps[2].colorSpace = NoColorSpace;
+    return maps;
+  }, [colorSource, normalSource, packedSource]);
+  const material = useMemo(() => new THREE.MeshStandardMaterial({
+    map: colorMap,
+    normalMap,
+    roughnessMap: packedMap,
+    aoMap: packedMap,
+    aoMapIntensity: 0.65,
+    roughness: 0.82,
+    metalness: 0,
+    normalScale: new Vector2(0.24, 0.24),
+  }), [colorMap, normalMap, packedMap]);
+  useEffect(() => () => {
+    material.dispose();
+    colorMap.dispose();
+    normalMap.dispose();
+    packedMap.dispose();
+  }, [colorMap, material, normalMap, packedMap]);
+
+  const westX = -ROOM.width / 2 + ROOM.wallThickness / 2 + 0.004;
+  const eastX = ROOM.width / 2 - ROOM.wallThickness / 2 - 0.004;
+  const northZ = -ROOM.depth / 2 + ROOM.wallThickness / 2 + 0.004;
+  const southZ = ROOM.depth / 2 - ROOM.wallThickness / 2 - 0.004;
+  const sideWidth = (ROOM.width - ROOM.doorWidth) / 2;
+  const sideX = ROOM.doorWidth / 2 + sideWidth / 2;
+  const segments = [
+    { key: 'west', size: [SKIRTING_DEPTH, SKIRTING_HEIGHT, ROOM.depth] as [number, number, number], position: [westX + SKIRTING_DEPTH / 2 - 0.02, SKIRTING_HEIGHT / 2, 0] as [number, number, number], alongAxis: 'z' },
+    { key: 'east', size: [SKIRTING_DEPTH, SKIRTING_HEIGHT, ROOM.depth] as [number, number, number], position: [eastX - SKIRTING_DEPTH / 2 + 0.02, SKIRTING_HEIGHT / 2, 0] as [number, number, number], alongAxis: 'z' },
+    { key: 'north', size: [ROOM.width, SKIRTING_HEIGHT, SKIRTING_DEPTH] as [number, number, number], position: [0, SKIRTING_HEIGHT / 2, northZ + SKIRTING_DEPTH / 2 - 0.02] as [number, number, number], alongAxis: 'x' },
+    ...[-1, 1].map((side) => ({
+      key: `south-${side}`,
+      size: [sideWidth, SKIRTING_HEIGHT, SKIRTING_DEPTH] as [number, number, number],
+      position: [side * sideX, SKIRTING_HEIGHT / 2, southZ - SKIRTING_DEPTH / 2 + 0.02] as [number, number, number],
+      alongAxis: 'x',
+    })),
+    { key: 'top-west', size: [SKIRTING_DEPTH, SKIRTING_HEIGHT, ROOM.depth] as [number, number, number], position: [westX + SKIRTING_DEPTH / 2 - 0.02, ROOM.height - SKIRTING_HEIGHT / 2, 0] as [number, number, number], alongAxis: 'z' },
+    { key: 'top-east', size: [SKIRTING_DEPTH, SKIRTING_HEIGHT, ROOM.depth] as [number, number, number], position: [eastX - SKIRTING_DEPTH / 2 + 0.02, ROOM.height - SKIRTING_HEIGHT / 2, 0] as [number, number, number], alongAxis: 'z' },
+    { key: 'top-north', size: [ROOM.width, SKIRTING_HEIGHT, SKIRTING_DEPTH] as [number, number, number], position: [0, ROOM.height - SKIRTING_HEIGHT / 2, northZ + SKIRTING_DEPTH / 2 - 0.02] as [number, number, number], alongAxis: 'x' },
+    { key: 'top-south', size: [ROOM.width, SKIRTING_HEIGHT, SKIRTING_DEPTH] as [number, number, number], position: [0, ROOM.height - SKIRTING_HEIGHT / 2, southZ - SKIRTING_DEPTH / 2 + 0.02] as [number, number, number], alongAxis: 'x' },
+    ...([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => ({
+      key: `corner-${xSide}-${zSide}`,
+      size: [0.16, ROOM.height, 0.16] as [number, number, number],
+      position: [
+        xSide * (ROOM.width / 2 - ROOM.wallThickness / 2 - 0.004 - 0.035),
+        ROOM.height / 2,
+        zSide * (ROOM.depth / 2 - ROOM.wallThickness / 2 - 0.004 - 0.035),
+      ] as [number, number, number],
+      alongAxis: 'x',
+    }))),
+  ];
+  const geometries = useMemo(() => segments.map(({ size, alongAxis }) => {
+    const geometry = new THREE.BoxGeometry(...size);
+    const positions = geometry.getAttribute('position');
+    const normals = geometry.getAttribute('normal');
+    const uv = geometry.getAttribute('uv');
+    const horizontalLength = alongAxis === 'x' ? size[0] : size[2];
+    const verticalWoodGrain = size[1] > SKIRTING_HEIGHT + 0.01;
+    for (let index = 0; index < positions.count; index += 1) {
+      const normalX = Math.abs(normals.getX(index)) > 0.5;
+      const normalZ = Math.abs(normals.getZ(index)) > 0.5;
+      const isLongFace = verticalWoodGrain
+        ? normalX || normalZ
+        : alongAxis === 'x' ? normalZ : normalX;
+      if (!isLongFace) continue;
+      const horizontal = verticalWoodGrain
+        ? normalZ ? positions.getX(index) : positions.getZ(index)
+        : alongAxis === 'x' ? positions.getX(index) : positions.getZ(index);
+      uv.setXY(
+        index,
+        verticalWoodGrain
+          ? (horizontal + (normalZ ? size[0] : size[2]) / 2)
+          : (positions.getY(index) + size[1] / 2),
+        verticalWoodGrain
+          ? (positions.getY(index) + size[1] / 2) / WOOD_TEXTURE_TILE_LENGTH
+          : (horizontal + horizontalLength / 2) / WOOD_TEXTURE_TILE_LENGTH,
+      );
+    }
+    uv.needsUpdate = true;
+    geometry.setAttribute('uv2', uv.clone());
+    return geometry;
+  }), []);
+  useEffect(() => () => geometries.forEach((geometry) => geometry.dispose()), [geometries]);
+
+  return (
+    <group>
+      {segments.map((segment, index) => (
+        <mesh key={segment.key} geometry={geometries[index]} material={material} position={segment.position} castShadow receiveShadow />
+      ))}
+    </group>
+  );
+}
+
+export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => void }) {
   return (
     <>
       <color attach="background" args={['#171411']} />
@@ -297,10 +509,12 @@ export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => 
       <FireplaceWall />
       <mesh position={[-ROOM.width / 2, ROOM.height / 2, 0]}>
         <boxGeometry args={[ROOM.wallThickness, ROOM.height, ROOM.depth]} />
-        <meshStandardMaterial color="#3c3025" side={DoubleSide} roughness={0.92} />
+        <meshStandardMaterial color={WALL_BASE_COLOR} side={DoubleSide} roughness={0.94} />
       </mesh>
       <EastWindow />
       <Doorway />
+      <WallFinish />
+      <WoodTrim />
       <mesh position={[0, ROOM.height, 0]}>
         <boxGeometry args={[ROOM.width, ROOM.wallThickness, ROOM.depth]} />
         <WoodPlankMaterial width={ROOM.width} height={ROOM.depth} />
@@ -322,12 +536,6 @@ export function Room({ onBookSelected }: { onBookSelected: (book: ShelfBook) => 
       <Fireplace />
       <BookSelectionController books={SHELF_BOOKS} onSelect={onBookSelected} />
       <Suspense fallback={null}><BookShelf books={SHELF_BOOKS} /></Suspense>
-      {showBookSlots && SHELF_BOOKS.map((book) => (
-        <mesh key={`slot-${book.id}`} position={book.position} rotation={[0, book.rotationY, book.lean]}>
-          <boxGeometry args={[book.thickness, book.height, book.depth]} />
-          <meshBasicMaterial color="#56d9ff" wireframe transparent opacity={0.45} depthTest={false} />
-        </mesh>
-      ))}
     </>
   );
 }

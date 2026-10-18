@@ -3,10 +3,6 @@
 import { useEffect, useMemo } from 'react';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
-import colorTextureAsset from '@/assets/windows/stone-bricks/Bricks008_1K-JPG_Color.jpg';
-import normalTextureAsset from '@/assets/windows/stone-bricks/Bricks008_1K-JPG_NormalGL.jpg';
-import roughnessTextureAsset from '@/assets/windows/stone-bricks/Bricks008_1K-JPG_Roughness.jpg';
-import aoTextureAsset from '@/assets/windows/stone-bricks/Bricks008_1K-JPG_AmbientOcclusion.jpg';
 
 type Props = {
   position: [number, number, number];
@@ -18,24 +14,21 @@ type Props = {
 // Gothic Window 06's characteristic nested pointed arch, built as a light
 // architectural frame so it fits the room's actual wall openings.
 export function GothicWindow6({ position, rotation = [0, 0, 0], width = 1.3, height = 2.2 }: Props) {
-  const [stone, normal, roughness, ao] = useTexture([
-    colorTextureAsset.src,
-    normalTextureAsset.src,
-    roughnessTextureAsset.src,
-    aoTextureAsset.src,
+  const [wood, normal, packed] = useTexture([
+    '/textures/wooden-planks/T_vjisagn_2K_B.png',
+    '/textures/wooden-planks/T_vjisagn_2K_N.png',
+    '/textures/wooden-planks/T_vjisagn_2K_ORM.png',
   ]);
   useEffect(() => {
-    stone.colorSpace = THREE.SRGBColorSpace;
-    for (const texture of [stone, normal, roughness, ao]) {
+    wood.colorSpace = THREE.SRGBColorSpace;
+    normal.colorSpace = THREE.NoColorSpace;
+    packed.colorSpace = THREE.NoColorSpace;
+    for (const texture of [wood, normal, packed]) {
       texture.wrapS = THREE.RepeatWrapping;
       texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(1, 1.5);
       texture.needsUpdate = true;
     }
-    normal.colorSpace = THREE.NoColorSpace;
-    roughness.colorSpace = THREE.NoColorSpace;
-    ao.colorSpace = THREE.NoColorSpace;
-  }, [ao, normal, roughness, stone]);
+  }, [normal, packed, wood]);
 
   const geometry = useMemo(() => {
     const shape = new THREE.Shape();
@@ -72,14 +65,14 @@ export function GothicWindow6({ position, rotation = [0, 0, 0], width = 1.3, hei
   return (
     <mesh position={position} rotation={rotation} geometry={geometry} castShadow receiveShadow>
       <meshStandardMaterial
-        map={stone}
+        map={wood}
         normalMap={normal}
-        roughnessMap={roughness}
-        aoMap={ao}
-        aoMapIntensity={0.7}
-        normalScale={new THREE.Vector2(0.45, 0.45)}
+        roughnessMap={packed}
+        aoMap={packed}
+        aoMapIntensity={0.65}
+        normalScale={new THREE.Vector2(0.3, 0.3)}
         color="#ffffff"
-        roughness={0.9}
+        roughness={0.82}
         side={THREE.DoubleSide}
       />
     </mesh>

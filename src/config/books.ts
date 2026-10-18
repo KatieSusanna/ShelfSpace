@@ -34,6 +34,54 @@ const titles = [
 ];
 const authors = ['E. Rowan', 'M. Vale', 'A. Finch', 'J. North', 'C. Wren'];
 
+const descriptionOpenings = [
+  (title: string) => `${title} begins when a weathered letter reveals a secret hidden in an old library.`,
+  (title: string) => `In ${title}, a quiet village is unsettled by a map with one place crossed out.`,
+  (title: string) => `${title} follows an apprentice who discovers that the town clock has stopped for a reason.`,
+  (title: string) => `A forgotten key sets the mystery in motion in ${title}.`,
+  (title: string) => `${title} tells of two neighbours brought together by a parcel delivered to the wrong door.`,
+  (title: string) => `In ${title}, a long-lost notebook leads its finder onto a winding country path.`,
+  (title: string) => `${title} opens on the eve of a festival, when an unexpected visitor changes everything.`,
+  (title: string) => `A curious child and a cautious fox share an unlikely adventure in ${title}.`,
+  (title: string) => `${title} centres on a small bookshop where every visitor seems to know the same old song.`,
+  (title: string) => `When a distant lighthouse flashes out of season, the characters in ${title} begin asking questions.`,
+  (title: string) => `${title} follows a family returning to a house full of unopened letters and old memories.`,
+  (title: string) => `An odd entry in a village diary starts a chain of discoveries in ${title}.`,
+  (title: string) => `In ${title}, a gardener finds a silver thread caught among the roots of an ancient tree.`,
+  (title: string) => `${title} begins with a train arriving at a station that does not appear on any timetable.`,
+  (title: string) => `A missing portrait draws a young historian into the heart of ${title}.`,
+  (title: string) => `${title} follows a musician searching for the source of a melody heard only at night.`,
+  (title: string) => `The discovery of a sealed room gives ${title} its first clue and its greatest question.`,
+];
+
+const descriptionTurns = [
+  'Each clue brings the friends closer, while revealing how much they still have to learn about one another.',
+  'Through snowy lanes and warm kitchens, the search becomes a story about courage and belonging.',
+  'A gentle mystery unfolds, with unexpected allies appearing just when they are needed.',
+  'The journey tests old loyalties and shows that the truth can be kinder than a rumour.',
+  'Small acts of kindness help uncover a much larger story buried in the past.',
+  'As the seasons turn, the search becomes a chance to mend a friendship and begin again.',
+  'The answer lies closer to home than anyone expects, tucked among familiar places.',
+  'With humour, heart, and a little bit of magic, the characters learn to trust their instincts.',
+  'Every new discovery brings a fresh puzzle, and every puzzle opens another door.',
+  'The story weaves family secrets and new beginnings into an adventure full of warmth.',
+  'A race against time leads from the village square to the wild edge of the forest.',
+  'By listening to the people around them, the characters find a solution no map could show.',
+  'What starts as a simple errand grows into a memorable journey across the countryside.',
+  'The mystery is full of false starts, unlikely friendships, and one very surprising witness.',
+  'In the end, the most important thing they uncover is a reason to come together.',
+  'Quietly magical and full of detail, the tale rewards anyone willing to look twice.',
+  'An old promise shapes the adventure, but the next chapter belongs to the people living it now.',
+  'The path ahead is uncertain, yet each step makes the once-strange place feel like home.',
+  'A hopeful, cosy story about finding your way when the familiar world changes.',
+];
+
+function makeDescription(title: string, bookIndex: number): string {
+  const opening = descriptionOpenings[bookIndex % descriptionOpenings.length](title);
+  const turnIndex = Math.floor(bookIndex / descriptionOpenings.length) % descriptionTurns.length;
+  return `${opening} ${descriptionTurns[turnIndex]}`;
+}
+
 function randomFromId(id: string): () => number {
   let seed = 2166136261;
   for (const letter of id) seed = Math.imul(seed ^ letter.charCodeAt(0), 16777619);
@@ -96,6 +144,7 @@ export const SHELF_BOOKS: ShelfBook[] = (() => {
           id,
           title,
           author: authors[(bookNumber + rowIndex) % authors.length],
+          description: makeDescription(title, bookNumber),
           assetPiece: slot.assetPiece,
           position: placeOnBookcase(bookcase, localX, row.plankTop + height / 2, row.spineFrontZ - depth / 2),
           rotationY: yaw,

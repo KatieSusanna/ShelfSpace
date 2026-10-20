@@ -2,14 +2,6 @@
 
 **A walkable, interactive library for discovering and cataloguing books.** The Midnight Stacks pairs a detailed 3D reading room with tools for identifying books, viewing their details, and keeping personal ratings and reviews. Built during a 24-hour hackathon.
 
-## Demo
-
-<video src="https://github.com/KatieSusanna/The-Midnight-Stacks/raw/refs/heads/main/The_Midnight_Stacks_Demo.mp4" controls width="100%" aria-label="The Midnight Stacks video demo">
-  Your browser cannot play the embedded video. [Watch or download The Midnight Stacks demo](https://github.com/KatieSusanna/The-Midnight-Stacks/raw/refs/heads/main/The_Midnight_Stacks_Demo.mp4).
-</video>
-
-The demo is stored with [Git LFS](https://git-lfs.com/). A direct link is available [here](https://github.com/KatieSusanna/The-Midnight-Stacks/raw/refs/heads/main/The_Midnight_Stacks_Demo.mp4).
-
 ## Features
 
 - Explore a gothic library rendered in 3D, with perimeter bookcases, a fireplace, a window seat, lounge seating, and atmospheric lighting.
